@@ -582,7 +582,7 @@ def get_repartidor_viaje_actual():
             # Estado en DB gana si existe; si no, usa el del motor
             estado_real = info_db.get("estado", v.get("estado", "Pendiente"))
             
-            if estado_real == "Entregado":
+            if estado_real in ("Completado", "Entregado"):
                 entregadas += 1
             elif viaje_actual is None:  # primera no-entregada = viaje activo
                 viaje_actual = {
@@ -591,16 +591,19 @@ def get_repartidor_viaje_actual():
                     "zona_logistica": v["zona_logistica"],
                     "ocupacion_porcentaje": v["ocupacion_porcentaje"],
                     "estado": estado_real,
-                    "partes": v["partes"]
+                    "partes": v.get("partes", []),
+                    "cantidad_cajas": sum(p["vacias_retornar"] for p in v.get("partes", [])),
+                    "porcentaje_cubicaje": v["ocupacion_porcentaje"],
+                    "hora_salida": hora,
+                    "destino": v["zona_logistica"]
                 }
         
         if not viaje_actual:
             return {
                 "mensaje": "!Todas las entregas del dia completadas!",
-                "progreso": {"entregadas": entregadas, "total": total_ventanas}
-            }
-        
-        # 3. Construir lista de partes para checklist del chofer
+                "progreso": {"entregadas": entregadas, "total": total_ventanas},
+                "completado": True
+            }  # 3. Construir lista de partes para checklist del chofer
         partes_lista = []
         total_cajas = 0
         tipos_empaque = set()
@@ -678,7 +681,7 @@ def get_vw_dashboard_data(fecha: str = None):
             grafica_jit.append({
                 "hora": h,
                 "porcentaje": min(100.0, float(porcentaje_avg)),
-                "past": estado == 'Entregado'
+                "past": estado in ('Completado', 'Entregado')
             })
             
             # KPIs Iteración
@@ -686,7 +689,7 @@ def get_vw_dashboard_data(fecha: str = None):
                 ocupacion_total_calculada += porcentaje_avg
                 ventanas_activas += 1
                 
-            if estado == 'Entregado':
+            if estado in ('Completado', 'Entregado'):
                 total_entregados += 1
                 
             # Alertas: Retrasos Críticos
@@ -700,7 +703,7 @@ def get_vw_dashboard_data(fecha: str = None):
                 })
                 
             # Alerta de ocupación
-            if porcentaje_avg < 85 and len(ventana["partes"]) > 0 and estado != 'Entregado':
+            if porcentaje_avg < 85 and len(ventana["partes"]) > 0 and estado not in ('Completado', 'Entregado'):
                 alertas.append({
                     "nivel": "advertencia",
                     "titulo": f"Ocupación Logística Subóptima ({int(porcentaje_avg)}%)",

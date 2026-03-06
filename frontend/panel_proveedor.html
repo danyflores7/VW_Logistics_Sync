@@ -456,7 +456,7 @@
                 const eficienciaPanelEl = document.getElementById("eficiencia-panel");
                 if (eficienciaPanelEl) {
                     const totalVentanas = data.ventanas.length || 1;
-                    const entregadas = data.ventanas.filter(v => v.estado === 'Entregado').length;
+                    const entregadas = data.ventanas.filter(v => v.estado === 'Completado' || v.estado === 'Entregado').length;
 
                     // Solo como KPI de la plataforma, unificamos % promedio de volumen de todas
                     const sumaVolumen = data.ventanas.reduce((sum, v) => sum + v.ocupacion_porcentaje, 0);
