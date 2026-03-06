@@ -497,7 +497,7 @@
                         <div class="flex gap-2 mb-2">
                             <input type="number" id="input-cantidad" placeholder="Cajas Llenas recibidas..." class="flex-1 rounded-lg border-green-300 text-sm focus:ring-green-500" value="${data.cantidad_cajas}">
                         </div>
-                        <button onclick="confirmarEstado(${data.id_viaje}, 'Completado')" class="w-full bg-green-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
+                        <button id="btn-confirmar-estado" onclick="confirmarEstado(${data.id_viaje}, 'Completado')" class="w-full bg-green-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
                             <span class="material-symbols-outlined">inventory_2</span> Validar Recepción de Cajas LLENAS
                         </button>
                     </div>
@@ -509,7 +509,7 @@
                         <div class="flex gap-2 mb-2">
                             <input type="number" id="input-cantidad" placeholder="Cajas Vacías enviadas..." class="flex-1 rounded-lg border-blue-300 text-sm focus:ring-blue-500" value="${data.cantidad_cajas}">
                         </div>
-                        <button onclick="confirmarEstado(${data.id_viaje}, 'Transito_Hacia_Prov')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
+                        <button id="btn-confirmar-estado" onclick="confirmarEstado(${data.id_viaje}, 'Transito_Hacia_Prov')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
                             <span class="material-symbols-outlined">local_shipping</span> Confirmar Salida de Cajas VACÍAS
                         </button>
                     </div>
@@ -523,7 +523,7 @@
             }
 
             container.innerHTML = html + `
-                <button id="btn-reportar" class="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                <button onclick="abrirModalIncidencia()" class="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-red-500 text-lg">warning</span> Reportar Incidencia
                 </button>
             `;
@@ -536,6 +536,12 @@
             try {
                 const inputVal = document.getElementById('input-cantidad').value;
                 const cantidad = parseInt(inputVal) || 0;
+                const btn = document.getElementById('btn-confirmar-estado');
+
+                if (btn) {
+                    btn.innerHTML = `<span class="material-symbols-outlined animate-spin">autorenew</span> Procesando...`;
+                    btn.disabled = true;
+                }
 
                 const req = await fetch('/api/actualizar-estado', {
                     method: 'POST',
@@ -545,8 +551,10 @@
 
                 if (!req.ok) throw new Error("Fallo en API al confirmar entrega");
 
-                btn.className = "w-full bg-green-600 text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 uppercase tracking-wide";
-                btn.innerHTML = `<span class="material-symbols-outlined">done_all</span> ¡Entregado con éxito!`;
+                if (btn) {
+                    btn.className = "w-full bg-green-600 text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 uppercase tracking-wide";
+                    btn.innerHTML = `<span class="material-symbols-outlined">done_all</span> ¡Actualizado!`;
+                }
 
                 setTimeout(() => {
                     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
@@ -555,18 +563,20 @@
 
             } catch (err) {
                 alert("Error al registrar entrega: " + err.message);
-                const btn = document.getElementById('btn-entregar-viaje');
-                btn.innerHTML = `Reintentar`;
-                btn.disabled = false;
+                const btn = document.getElementById('btn-confirmar-estado');
+                if (btn) {
+                    btn.innerHTML = `Reintentar`;
+                    btn.disabled = false;
+                }
             }
         }
 
         // ════════════════════════════════════════════════════
         //  MODAL INCIDENCIA
         // ════════════════════════════════════════════════════
-        document.getElementById('btn-reportar').addEventListener('click', () => {
+        function abrirModalIncidencia() {
             document.getElementById('modal-incidencia').classList.remove('hidden');
-        });
+        }
 
         function cerrarModalIncidencia() {
             document.getElementById('modal-incidencia').classList.add('hidden');
