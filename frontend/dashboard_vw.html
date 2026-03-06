@@ -517,42 +517,68 @@
                     if (tablaViajes && data.viajes_vivo) {
                         tablaViajes.innerHTML = '';
                         if (data.viajes_vivo.length === 0) {
-                            tablaViajes.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">No hay viajes registrados. Sube el layout de demanda.</td></tr>`;
+                            tablaViajes.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">No hay viajes registrados. Sube el layout de demanda.</td></tr>`;
                         } else {
-                            data.viajes_vivo.forEach(viaje => {
-                                let textColor = 'text-slate-500';
-                                let bgColor = 'bg-slate-500';
-                                let label = 'Pendiente';
-                                let anim = '';
-                                let opacityClass = '';
-
-                                if (viaje.estado === 'En_Transito') {
-                                    textColor = 'text-blue-600'; bgColor = 'bg-blue-600'; label = 'En Tránsito'; anim = 'animate-pulse';
-                                } else if (viaje.estado === 'Entregado') {
-                                    textColor = 'text-green-600'; bgColor = 'bg-green-600'; label = 'Entregado'; anim = '';
-                                    opacityClass = 'opacity-50';
-                                } else if (viaje.estado === 'Retraso') {
-                                    textColor = 'text-red-600'; bgColor = 'bg-red-600'; label = 'Retraso'; anim = 'animate-pulse';
+                            // Agrupar viajes por ventana (hora)
+                            const viajesPorHora = {};
+                            data.viajes_vivo.forEach(v => {
+                                if (!viajesPorHora[v.hora]) {
+                                    viajesPorHora[v.hora] = [];
                                 }
+                                viajesPorHora[v.hora].push(v);
+                            });
 
-                                const trHtml = `
-                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${opacityClass}">
-                                    <td class="px-6 py-4 font-bold text-sm ${viaje.estado === 'Entregado' ? 'line-through text-slate-400' : ''}">${viaje.hora}</td>
-                                    <td class="px-6 py-4 text-sm font-medium flex items-center gap-2"><div class="size-6 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center text-[10px] font-bold">AK</div> ${viaje.proveedor}</td>
-                                    <td class="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">PN: ${viaje.noparte}</td>
-                                    <td class="px-6 py-4 font-bold text-primary dark:text-blue-400 text-sm">${viaje.empaques}</td>
-                                    <td class="px-6 py-4">
-                                        <span class="flex items-center gap-1.5 ${textColor} text-xs font-bold shadow-sm">
-                                            <span class="size-2 rounded-full ${bgColor} ${anim}"></span>
-                                            ${label.toUpperCase()}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 text-xs text-slate-500 font-medium">${viaje.zona_tme}</td>
-                                    <td class="px-6 py-4">
-                                        <button class="text-primary text-xs font-bold hover:underline">Auditar</button>
+                            // Ordenar las horas
+                            const horasOrdenadas = Object.keys(viajesPorHora).sort();
+
+                            horasOrdenadas.forEach(hora => {
+                                // 1. Fila de Encabezado / Agrupador
+                                tablaViajes.innerHTML += `
+                                <tr class="bg-slate-100/80 dark:bg-slate-800/80 border-y border-slate-200 dark:border-slate-700">
+                                    <td colspan="7" class="px-6 py-3">
+                                        <div class="flex items-center gap-2 text-primary dark:text-blue-400 font-bold">
+                                            <span class="material-symbols-outlined text-sm">schedule</span>
+                                            Ventana Logística: ${hora}
+                                        </div>
                                     </td>
                                 </tr>`;
-                                tablaViajes.innerHTML += trHtml;
+
+                                // 2. Las filas nativas de esa ventana
+                                viajesPorHora[hora].forEach(viaje => {
+                                    let textColor = 'text-slate-500';
+                                    let bgColor = 'bg-slate-500';
+                                    let label = 'Pendiente';
+                                    let anim = '';
+                                    let opacityClass = '';
+
+                                    if (viaje.estado === 'En_Transito') {
+                                        textColor = 'text-blue-600'; bgColor = 'bg-blue-600'; label = 'En Tránsito'; anim = 'animate-pulse';
+                                    } else if (viaje.estado === 'Entregado') {
+                                        textColor = 'text-green-600'; bgColor = 'bg-green-600'; label = 'Entregado'; anim = '';
+                                        opacityClass = 'opacity-50';
+                                    } else if (viaje.estado === 'Retraso') {
+                                        textColor = 'text-red-600'; bgColor = 'bg-red-600'; label = 'Retraso'; anim = 'animate-pulse';
+                                    }
+
+                                    const trHtml = `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${opacityClass}">
+                                        <td class="px-6 py-4 font-bold text-sm text-slate-400 pl-10">${viaje.hora}</td>
+                                        <td class="px-6 py-4 text-sm font-medium flex items-center gap-2"><div class="size-6 bg-slate-100 dark:bg-slate-800 rounded-md flex items-center justify-center text-[10px] font-bold">AK</div> ${viaje.proveedor}</td>
+                                        <td class="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">PN: ${viaje.noparte}</td>
+                                        <td class="px-6 py-4 font-bold text-primary dark:text-blue-400 text-sm">${viaje.empaques}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="flex items-center gap-1.5 ${textColor} text-xs font-bold shadow-sm">
+                                                <span class="size-2 rounded-full ${bgColor} ${anim}"></span>
+                                                ${label.toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-xs text-slate-500 font-medium">${viaje.zona_tme}</td>
+                                        <td class="px-6 py-4">
+                                            <button class="text-primary text-xs font-bold hover:underline">Auditar</button>
+                                        </td>
+                                    </tr>`;
+                                    tablaViajes.innerHTML += trHtml;
+                                });
                             });
                         }
                     }
