@@ -11,7 +11,7 @@ TRUCK_WIDTH = 2.5
 TRUCK_HEIGHT = 2.4
 TRUCK_MAX_WEIGHT_KG = 5000
 
-def get_daily_demand(db_path):
+def get_daily_demand(db_path, fecha=None):
     """
     Paso 1: Consulta SQL (El JOIN Maestro)
     Se conecta a SQLite y ejecuta un JOIN entre las 3 tablas.
@@ -22,11 +22,37 @@ def get_daily_demand(db_path):
         
         # Ojo que en `empaques_aksys` el campo de cruce con `empaques_plegados` es `TIPO DE EMPAQUE`
         # Ambos deben coincidir en string.
-        query = """
+        # Comprobar qué columnas existen
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(demanda_besi)")
+        columnas = [x[1] for x in cursor.fetchall()]
+        
+        import re
+        from datetime import datetime as dt
+        date_pattern = re.compile(r'^\d{2}/\d{2}/\d{4}$')
+        date_columns = [col for col in columnas if date_pattern.match(str(col))]
+        
+        # Resolver fecha a buscar
+        hoy_str = dt.now().strftime('%d/%m/%Y')
+        if not fecha or fecha == "DAILY":
+            if hoy_str in date_columns:
+                fecha = hoy_str
+            elif date_columns:
+                fecha = date_columns[0]
+                
+        # Si pasaron una fecha que no existe, omitir
+        if fecha not in date_columns:
+            print(f"La fecha requerida {fecha} no existe en la base de datos.")
+            conn.close()
+            return None
+            
+        col_fecha = f'"{fecha}"'
+            
+        query = f"""
         SELECT 
             b.Noparte, 
             b.TME, 
-            b.DAILY, 
+            b.{col_fecha} AS DAILY, 
             a."TIPO DE EMPAQUE", 
             a."CAPACIDAD X EMPAQUE", 
             p."Largo m", 
@@ -37,7 +63,7 @@ def get_daily_demand(db_path):
         FROM demanda_besi b
         INNER JOIN empaques_aksys a ON b.Noparte = a.Noparte
         INNER JOIN empaques_plegados p ON a."TIPO DE EMPAQUE" = p."TIPO DE EMPAQUE"
-        WHERE b.DAILY > 0
+        WHERE b.{col_fecha} > 0
         """
         
         df = pd.read_sql_query(query, conn)
@@ -187,16 +213,16 @@ def generate_logistics_plan(df):
     
     return resumen
 
-def main(db_path):
+def main(db_path, fecha=None):
     print(f"--- INICIANDO MOTOR DE CUBICAJE VW ---")
     print(f"Base de datos objetivo: {db_path}\n")
     
     print("[1/4] Extrayendo demanda consolidada (JOIN)...")
-    df = get_daily_demand(db_path)
+    df = get_daily_demand(db_path, fecha=fecha)
     
     if df is None or df.empty:
         print("ERROR: No se encontraron registros de demanda aptos. Terminado.")
-        return
+        return None
         
     print(f"      -> {len(df)} números de parte encontrados con demanda mayor a 0.")
     

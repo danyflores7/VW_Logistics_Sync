@@ -55,8 +55,8 @@
                 <div
                     class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-1.5 gap-2 border border-slate-200 dark:border-slate-700">
                     <span class="material-symbols-outlined text-slate-500 text-sm">calendar_today</span>
-                    <span class="text-sm font-medium" id="header-fecha-actual">24 Mayo 2024</span>
-                    <span class="material-symbols-outlined text-slate-400 text-sm cursor-pointer">expand_more</span>
+                    <input type="date" id="date-selector"
+                        class="bg-transparent text-sm font-medium border-none outline-none focus:ring-0 w-[120px]" />
                 </div>
                 <div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
                 <div class="flex items-center gap-3">
@@ -395,8 +395,9 @@
                         <div>
                             <h4 class="font-bold flex items-center gap-2"><span
                                     class="material-symbols-outlined text-primary">local_shipping</span> Nivelado de
-                                Retornos DHL</h4>
-                            <p class="text-xs text-slate-500">Distribución de cajas colapsadas en 4 ventanas logísticas
+                                Retornos (Salida VW)</h4>
+                            <p class="text-xs text-slate-500">Distribución de cajas colapsadas regresando al proveedor
+                                en 10 ventanas logísticas
                             </p>
                         </div>
                     </div>
@@ -423,19 +424,33 @@
             const qtyAlertasCriticas = document.getElementById('qty-alertas-criticas'); // Hay que poner este ID al HTML
             const contenedorAlertas = document.getElementById('contenedor-alertas-secundario');
             const graficaContainer = document.getElementById('grafica-jit-container');
-            const headerFecha = document.getElementById('header-fecha-actual');
-
-            // 0. Fecha Dinámica
-            if (headerFecha) {
-                const opcionesFecha = { year: 'numeric', month: 'long', day: 'numeric' };
-                headerFecha.textContent = new Date().toLocaleDateString('es-MX', opcionesFecha);
+            // 0. Fecha Dinámica Inicial
+            const dateInputInit = document.getElementById('date-selector');
+            if (dateInputInit && !dateInputInit.value) {
+                // Formatting to YYYY-MM-DD for initial load based on local computer time
+                const today = new Date();
+                const dd = String(today.getDate()).padStart(2, '0');
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const yyyy = today.getFullYear();
+                dateInputInit.value = `${yyyy}-${mm}-${dd}`;
             }
 
             // --- 1. FUNCIÓN PRINCIPAL DE HIDRATACIÓN (API CONSOLIDADA) ---
             async function cargarDatosDashboard() {
                 try {
                     console.log("Cargando datos frescos del Dashboard Analítico...");
-                    const response = await fetch('/api/vw/dashboard-data');
+                    let fetchUrl = '/api/vw/dashboard-data';
+                    const dateSelector = document.getElementById('date-selector');
+                    if (dateSelector && dateSelector.value) {
+                        try {
+                            const [year, month, day] = dateSelector.value.split('-');
+                            const formattedDate = `${day}/${month}/${year}`;
+                            fetchUrl += `?fecha=${encodeURIComponent(formattedDate)}`;
+                        } catch (e) {
+                            console.error("Error formatting date", e);
+                        }
+                    }
+                    const response = await fetch(fetchUrl);
 
                     if (!response.ok) {
                         throw new Error('Fallo al obtener datos consolidados');
@@ -526,14 +541,20 @@
                             });
 
                             for (const [hora, viajes] of Object.entries(ventanasAgrupadas)) {
-                                // Insert header separator
+                                const horaId = hora.replace(':', '');
+                                // Insert header separator (Clickable to toggle)
                                 tablaViajes.innerHTML += `
-                                <tr class="bg-slate-100 dark:bg-slate-800">
-                                    <td colspan="7" class="px-6 py-2 text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest border-l-4 border-primary">
-                                        <span class="material-symbols-outlined text-sm align-middle mr-1">schedule</span> Ventana JIT: <span class="text-primary dark:text-blue-400">${hora}</span>
+                                <tr class="bg-slate-100 dark:bg-slate-800 cursor-pointer hover:bg-slate-200 transition-colors" onclick="toggleVentana('${horaId}')">
+                                    <td colspan="7" class="px-6 py-2 text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest border-l-4 border-primary flex items-center justify-between">
+                                        <div>
+                                            <span class="material-symbols-outlined text-sm align-middle mr-1">schedule</span> Ventana JIT: <span class="text-primary dark:text-blue-400 font-bold">${hora}</span>
+                                            <span class="text-slate-500 font-medium ml-2 text-[10px]">(${viajes.length} Viajes)</span>
+                                        </div>
+                                        <span class="material-symbols-outlined text-slate-500" id="icon-${horaId}">expand_more</span>
                                     </td>
                                 </tr>`;
 
+                                let rowsHtml = '';
                                 viajes.forEach(viaje => {
                                     let textColor = 'text-slate-500';
                                     let bgColor = 'bg-slate-500';
@@ -550,8 +571,8 @@
                                         textColor = 'text-red-600'; bgColor = 'bg-red-600'; label = 'Retraso'; anim = 'animate-pulse';
                                     }
 
-                                    const trHtml = `
-                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${opacityClass}">
+                                    rowsHtml += `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${opacityClass} row-${horaId}">
                                         <td class="px-6 py-3 font-bold text-sm ${viaje.estado === 'Entregado' ? 'line-through text-slate-400 pl-8' : 'pl-8 text-slate-400'}">↳ ${viaje.hora}</td>
                                         <td class="px-6 py-3 text-sm font-medium flex items-center gap-2"><div class="size-6 bg-slate-200 dark:bg-slate-700 rounded-md flex items-center justify-center text-[10px] font-bold">AK</div> ${viaje.proveedor}</td>
                                         <td class="px-6 py-3 text-sm font-bold text-slate-700 dark:text-slate-300">PN: ${viaje.noparte}</td>
@@ -567,8 +588,8 @@
                                             <button class="text-primary text-xs font-bold hover:underline">Auditar</button>
                                         </td>
                                     </tr>`;
-                                    tablaViajes.innerHTML += trHtml;
                                 });
+                                tablaViajes.innerHTML += rowsHtml;
                             }
                         }
                     }
@@ -580,9 +601,32 @@
                     if (tablaViajes) tablaViajes.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500 font-bold">No se pudo cargar la demanada en vivo. Asegúrate que la API de FastAPI esté encendida.</td></tr>`;
                 }
             } // Fin funcion cargarDatosDashboard
+            // Definir función colapsable global
+            window.toggleVentana = function (horaId) {
+                const rows = document.querySelectorAll(`.row-${horaId}`);
+                const icon = document.getElementById(`icon-${horaId}`);
+                let isHidden = false;
+                if (rows.length > 0) {
+                    isHidden = !rows[0].classList.contains('hidden'); // if it will be hidden
+                }
+                rows.forEach(row => {
+                    row.classList.toggle('hidden');
+                });
+                if (icon) {
+                    icon.textContent = isHidden ? 'chevron_right' : 'expand_more';
+                }
+            };
 
             // Cargar por primera vez al iniciar
             await cargarDatosDashboard();
+
+            // Escuchar cambios en el selector de fecha
+            const dateInput = document.getElementById('date-selector');
+            if (dateInput) {
+                dateInput.addEventListener('change', async () => {
+                    await cargarDatosDashboard();
+                });
+            }
 
             // --- 2. CONEXIÓN WEBSOCKETS EN TIEMPO REAL ---
             const wsProto = window.location.protocol === "https:" ? "wss://" : "ws://";
@@ -679,11 +723,29 @@
                     let contentHtml = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">`;
 
                     data.ventanas.forEach(ventana => {
-                        let partesTooltip = ventana.partes.map(p => `• PN: ${p.noparte} / TME: ${p.tipo_empaque} / Retornar: ${p.vacias_retornar}`).join('<br>');
-                        if (!partesTooltip) partesTooltip = 'Sin empaques designados en esta ventana.';
-
                         let totalEmpaques = 0;
-                        ventana.partes.forEach(p => totalEmpaques += p.vacias_retornar);
+                        const groupedTME = {};
+                        ventana.partes.forEach(p => {
+                            totalEmpaques += p.vacias_retornar;
+                            const key = p.tipo_empaque;
+                            if (!groupedTME[key]) {
+                                groupedTME[key] = { ...p };
+                                // Solo nos importa sumar las vacias basadas en el TME
+                            } else {
+                                groupedTME[key].vacias_retornar += p.vacias_retornar;
+                            }
+                        });
+
+                        let partesHTML = Object.values(groupedTME)
+                            .map(p => `<div class="flex justify-between items-center bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-100 dark:border-slate-800">
+                                <div>
+                                    <span class="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Empaque TME: ${p.tipo_empaque}</span>
+                                </div>
+                                <span class="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded font-bold text-[11px]">x${p.vacias_retornar}</span>
+                            </div>`)
+                            .join('');
+
+                        if (!partesHTML) partesHTML = '<p class="text-center italic text-slate-400 py-2 text-xs">Sin empaques a retornar.</p>';
 
                         const partesJsonEncoded = encodeURIComponent(JSON.stringify(ventana.partes.map(p => ({
                             noparte: p.noparte,
@@ -698,11 +760,11 @@
                         if (oc > 100) barColor = 'bg-red-500';
 
                         contentHtml += `
-                        <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 relative group">
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 flex flex-col h-full">
                             <div class="flex justify-between items-center mb-3">
-                                <h5 class="font-bold text-sm text-slate-700 dark:text-slate-300">Ventana: ${ventana.hora_ventana}</h5>
+                                <h5 class="font-bold text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> ${ventana.hora_ventana}</h5>
                                 <button onclick="window.open3DModal('${partesJsonEncoded}')" class="text-xs bg-primary hover:bg-primary/90 text-white px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-colors">
-                                    <span class="material-symbols-outlined text-[14px]">view_in_ar</span> 3D
+                                    <span class="material-symbols-outlined text-[14px]">view_in_ar</span> Simulación
                                 </button>
                             </div>
                             
@@ -716,14 +778,13 @@
                                 </div>
                             </div>
                             
-                            <div>
-                                <p class="text-xs text-slate-600 dark:text-slate-400 font-medium">${totalEmpaques} empaques colapsados</p>
+                            <div class="mb-3">
+                                <p class="text-[11px] text-slate-700 dark:text-slate-300 font-black"><span class="text-primary">•</span> ${totalEmpaques} colapsados a retornar</p>
                             </div>
                             
-                            <!-- Tooltip On Hover para desglose -->
-                            <div class="absolute bottom-full left-0 mb-2 w-full hidden group-hover:block z-20">
-                                <div class="bg-slate-900 text-white text-[10px] p-2 rounded shadow-xl leading-relaxed whitespace-nowrap">
-                                    ${partesTooltip}
+                            <div class="mt-auto border-t border-slate-200 dark:border-slate-700 pt-3">
+                                <div class="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                                    ${partesHTML}
                                 </div>
                             </div>
                         </div>`;

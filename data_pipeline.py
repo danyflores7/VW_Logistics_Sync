@@ -15,32 +15,30 @@ def load_and_process_besi(file_path):
         else:
             df = pd.read_excel(file_path)
             
-        # Extraer específicamente las columnas requeridas (Noparte, TME, y la fecha actual)
-        # Buscar dinámicamente la columna de la fecha de hoy.
-        from datetime import datetime
+        # Extraer específicamente las columnas requeridas (Noparte, TME, DAILY y fechas)
         import re
         
-        fecha_actual_str = datetime.now().strftime('%d/%m/%Y')
+        # Encontrar todas las columnas que sean fechas (dd/mm/yyyy)
+        date_pattern = re.compile(r'^\d{2}/\d{2}/\d{4}$')
+        date_columns = [col for col in df.columns if date_pattern.match(str(col))]
         
-        # Validar si existe la columna de hoy. Si no, tomar la primera columna que parezca fecha (dd/mm/yyyy).
-        col_fecha = fecha_actual_str
-        if col_fecha not in df.columns:
-            date_pattern = re.compile(r'^\d{2}/\d{2}/\d{4}$')
-            date_columns = [col for col in df.columns if date_pattern.match(str(col))]
-            if date_columns:
-                col_fecha = date_columns[0]
-                print(f"Warning: Columna '{fecha_actual_str}' no encontrada. Usando '{col_fecha}' como fallback.")
-            else:
-                raise KeyError(f"No se encontró una columna de fecha válida en el Excel de demanda BESI.")
-                
-        df = df[['Noparte', 'TME', col_fecha]]
-        df = df.rename(columns={col_fecha: 'DAILY'})
+        # Columnas a conservar
+        cols_to_keep = ['Noparte', 'TME']
+        if 'DAILY' in df.columns:
+            cols_to_keep.append('DAILY')
+        cols_to_keep.extend(date_columns)
+        
+        df = df[cols_to_keep].copy()
         
         # Limpiar espacios en blanco al inicio y al final de la columna 'Noparte'
         df['Noparte'] = df['Noparte'].astype(str).str.strip()
         
-        # Eliminar las filas finales basura donde Noparte es 'nan', 'JETTA', 'TIGUAN', etc.
-        df = df[df['DAILY'].notna()]
+        # Eliminar las filas basura donde Noparte es 'nan', etc.
+        # Solo conservamos filas donde alguna de las columnas de fecha tenga datos
+        if date_columns:
+            df = df.dropna(subset=date_columns, how='all')
+        elif 'DAILY' in df.columns:
+            df = df.dropna(subset=['DAILY'])
         
         return df
     except KeyError as e:

@@ -245,7 +245,7 @@ async def upload_demanda_file(file: UploadFile = File(...)):
 # === 4. ENDPOINTS PARA PANELES ESPECÍFICOS ===
 
 @app.get("/api/proveedor/ventanas")
-def get_proveedor_ventanas():
+def get_proveedor_ventanas(fecha: str = None):
     """ Devuelve la lista de ventanas JIT con algoritmo Heijunka de nivelación de carga y bin packing de ida """
     try:
         # 1. Ventanas estáticas base
@@ -285,7 +285,7 @@ def get_proveedor_ventanas():
             conn.close()
                 
         # 3. Leer motor de cubicaje
-        plan = ejecutar_motor_cubicaje(DB_PATH)
+        plan = ejecutar_motor_cubicaje(DB_PATH, fecha=fecha)
         detalles_pn = plan.get("Detalle_Por_Num_Parte", []) if plan else []
         
         TRUCK_LENGTH = 6.5
@@ -396,18 +396,18 @@ def get_proveedor_ventanas():
         raise HTTPException(status_code=500, detail=f"Error generando ventanas: {e}")
 
 @app.get("/api/dhl/retornos-vacios")
-def get_dhl_retornos_vacios():
-    """ Devuelve el nivelado logístico de empaques vacíos devueltos al proveedor (4 camiones DHL) """
+def get_dhl_retornos_vacios(fecha: str = None):
+    """ Devuelve el nivelado logístico de empaques vacíos devueltos al proveedor (10 camiones DHL programados desde VW) """
     try:
-        plan = ejecutar_motor_cubicaje(DB_PATH)
+        plan = ejecutar_motor_cubicaje(DB_PATH, fecha=fecha)
         if not plan:
             return {"ventanas": []}
 
         detalles_pn = plan.get("Detalle_Por_Num_Parte", [])
         
-        # 4 Viajes de DHL (Ejemplo: mañana, medio día, tarde, noche)
-        ventanas_dhl = ["08:00", "12:00", "16:00", "20:00"]
-        
+        # Horarios exactos de 'Salida VW' del ciclo para retornos de vacíos (Para usarse en la ventana siguiente)
+        ventanas_dhl_n25 = ["05:20", "07:50", "10:10", "12:30", "17:40", "20:00", "22:20", "00:40", "03:00"]
+        ventanas_dhl_n84 = ["14:50"] # El viaje de la 15:35 usa los vacíos que salen de VW a las 14:50
         ventanas_dict = {
             h: {
                 "id_viaje": idx + 100,
@@ -416,7 +416,7 @@ def get_dhl_retornos_vacios():
                 "sobrecupo": False,
                 "estado": "Pendiente",
                 "partes": []
-            } for idx, h in enumerate(ventanas_dhl)
+            } for idx, h in enumerate(ventanas_dhl_n25 + ventanas_dhl_n84)
         }
         
         TRUCK_LENGTH = 6.5
@@ -427,6 +427,7 @@ def get_dhl_retornos_vacios():
         for p in detalles_pn:
             noparte = p.get("Noparte")
             tme = p.get("Tipo_Empaque")
+            tmg_zona = p.get("TME") # TME define si es 2GM (Nave 84) u otros (Nave 25)
             cajas_req = p.get("Cajas_Requeridas", 0)
             
             # Dimensiones
@@ -448,27 +449,42 @@ def get_dhl_retornos_vacios():
             if cap_max_plegadas <= 0:
                 continue
 
-            # Heijunka de vacías (dividir en 4 ventanas)
-            cajas_por_viaje = math.floor(cajas_req / len(ventanas_dhl))
-            cajas_sobrantes = cajas_req % len(ventanas_dhl)
-            
-            for idx, h in enumerate(ventanas_dhl):
-                asignadas_viaje = cajas_por_viaje + (1 if idx < cajas_sobrantes else 0)
-                if asignadas_viaje > 0:
-                    ventanas_dict[h]["partes"].append({
-                        "noparte": noparte,
-                        "tipo_empaque": tme,
-                        "vacias_retornar": asignadas_viaje, # En dhl las llamamos retornar
-                        "l_m": l,
-                        "w_m": w,
-                        "h_m": h_plegada
-                    })
-                    fraccion = asignadas_viaje / cap_max_plegadas
-                    ventanas_dict[h]["ocupacion_porcentaje"] += fraccion * 100
+            # Nivelado exacto acorde a salidas llenas
+            if tmg_zona == "2GM":
+                hora_asignada = ventanas_dhl_n84[0]
+                ventanas_dict[hora_asignada]["partes"].append({
+                    "noparte": noparte,
+                    "tipo_empaque": tme,
+                    "vacias_retornar": cajas_req,
+                    "l_m": l,
+                    "w_m": w,
+                    "h_m": h_plegada
+                })
+                fraccion = cajas_req / cap_max_plegadas
+                ventanas_dict[hora_asignada]["ocupacion_porcentaje"] += fraccion * 100
+            else:
+                # Heijunka de vacías NAVE 25 (dividir en 9 ventanas correspondientes)
+                cajas_por_viaje = math.floor(cajas_req / len(ventanas_dhl_n25))
+                cajas_sobrantes = cajas_req % len(ventanas_dhl_n25)
+                
+                for idx, h in enumerate(ventanas_dhl_n25):
+                    asignadas_viaje = cajas_por_viaje + (1 if idx < cajas_sobrantes else 0)
+                    if asignadas_viaje > 0:
+                        ventanas_dict[h]["partes"].append({
+                            "noparte": noparte,
+                            "tipo_empaque": tme,
+                            "vacias_retornar": asignadas_viaje, # En dhl las llamamos retornar
+                            "l_m": l,
+                            "w_m": w,
+                            "h_m": h_plegada
+                        })
+                        fraccion = asignadas_viaje / cap_max_plegadas
+                        ventanas_dict[h]["ocupacion_porcentaje"] += fraccion * 100
 
-        # Validar sobrecupos
+        # Validar sobrecupos y aplicar el orden natural de retornos de vacíos
         ventanas_lista = []
-        for h in ventanas_dhl:
+        orden_retornos = ["07:50", "10:10", "12:30", "14:50", "17:40", "20:00", "22:20", "00:40", "03:00", "05:20"]
+        for h in orden_retornos:
             v_data = ventanas_dict[h]
             if v_data["ocupacion_porcentaje"] > 100:
                 v_data["sobrecupo"] = True
@@ -499,7 +515,7 @@ def get_repartidor_viaje_actual():
         estado_por_ventana = {row["ventana_hora"]: {"id": row["id_viaje"], "estado": row["estado"]} for row in viajes_db}
         
         # 2. Obtener ventanas ricas del motor (igual que panel_proveedor.html)
-        proveedor_data = get_proveedor_ventanas()
+        proveedor_data = get_proveedor_ventanas(fecha=None)
         ventanas = proveedor_data.get("ventanas", [])
         
         if not ventanas:
@@ -563,11 +579,15 @@ def get_repartidor_viaje_actual():
         raise HTTPException(status_code=500, detail=f"Error obteniendo viaje actual: {e}")
 
 @app.get("/api/vw/dashboard-data")
-def get_vw_dashboard_data():
+def get_vw_dashboard_data(fecha: str = None):
     """ Construye la data consolidada para el Dashboard Analítico (Controlador VW) """
     try:
+        # Prevent empty string from breaking logic
+        if fecha == "":
+            fecha = None
+            
         # 1. Obtener la data maestra del motor de cubicaje para cálculos teóricos
-        plan = ejecutar_motor_cubicaje(DB_PATH)
+        plan = ejecutar_motor_cubicaje(DB_PATH, fecha=fecha)
         detalles_pn = plan.get("Detalle_Por_Num_Parte", []) if plan else []
         total_empaques_hoy = plan.get("Total_Cajas_A_Enviar", 0) if plan else 0
         camiones_requeridos = plan.get("Total_Camiones_Flota_Requerida", 0) if plan else 0
@@ -585,7 +605,7 @@ def get_vw_dashboard_data():
         for row in viajes_db:
             estado_por_ventana[row["ventana_hora"]] = row["estado"]
             
-        proveedor_data = get_proveedor_ventanas()
+        proveedor_data = get_proveedor_ventanas(fecha=fecha)
         lista_ventanas = proveedor_data.get("ventanas", [])
         
         viajes_vivo = []
@@ -649,6 +669,41 @@ def get_vw_dashboard_data():
                     "zona_tme": f"{ventana['zona_logistica']} (TME: {p['tipo_empaque']})"
                 })
 
+        # --- DATA MINING / PREDICCIÓN DE RIESGO DE DESABASTO ---
+        import datetime
+        conn_prd = sqlite3.connect(DB_PATH)
+        cursor_prd = conn_prd.cursor()
+        cursor_prd.execute("PRAGMA table_info(demanda_besi)")
+        columnas_db = [x[1] for x in cursor_prd.fetchall()]
+        conn_prd.close()
+        
+        # Determinar fecha base
+        if fecha and fecha != "DAILY":
+            try:
+                base_date = datetime.datetime.strptime(fecha, "%d/%m/%Y")
+            except Exception:
+                base_date = datetime.datetime.now()
+        else:
+            base_date = datetime.datetime.now()
+            
+        for i in range(1, 4):
+            next_date = base_date + datetime.timedelta(days=i)
+            next_date_str = next_date.strftime("%d/%m/%Y")
+            
+            if next_date_str in columnas_db:
+                # Ejecutar motor predictivo para los siguientes días
+                plan_futuro = ejecutar_motor_cubicaje(DB_PATH, fecha=next_date_str)
+                if plan_futuro:
+                    camiones_necesarios = plan_futuro.get("Total_Camiones_Flota_Requerida", 0)
+                    if camiones_necesarios > 10:  # Regla del negocio, max 10 camiones
+                        alertas.insert(0, {
+                            "nivel": "critico",
+                            "titulo": f"Predicción de Desabasto ({next_date_str})",
+                            "desc_corta": f"Demanda logística excede capacidad de transporte local (Req: {camiones_necesarios} > Máx: 10 cam.)",
+                            "accion": "Planear Transporte",
+                            "tiempo": "Proyección IA"
+                        })
+        # --------------------------------------------------------
         # 5. KPIs Finales
         ocupacion_dhl_kpi = (ocupacion_total_calculada / ventanas_activas) if ventanas_activas > 0 else 0
         cumplimiento_global_kpi = (total_entregados / len(lista_ventanas) * 100) if lista_ventanas else 0
