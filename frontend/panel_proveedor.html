@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1e0052",
+                        "background-light": "#f6f5f8",
+                        "background-dark": "#160f23",
+                        "success": "#059669",
+                        "info": "#2563eb",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+    <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+        <div class="layout-container flex h-full grow flex-col">
+            <header
+                class="flex items-center justify-between border-b border-primary/10 bg-white dark:bg-slate-900 px-8 py-4 sticky top-0 z-50">
+                <div class="flex items-center gap-4">
+                    <div class="text-primary dark:text-white">
+                        <svg class="size-8" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <g clip-path="url(#clip0_6_535)">
+                                <path clip-rule="evenodd"
+                                    d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z"
+                                    fill="currentColor" fill-rule="evenodd"></path>
+                            </g>
+                            <defs>
+                                <clippath id="clip0_6_535">
+                                    <rect fill="white" height="48" width="48"></rect>
+                                </clippath>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h2 class="text-primary dark:text-white text-2xl font-black leading-tight tracking-tight">AKSYS</h2>
+                </div>
+                <div class="flex flex-1 justify-end gap-6 items-center">
+                    <div class="flex gap-3">
+                        <button
+                            class="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/20 dark:text-slate-100">
+                            <span class="material-symbols-outlined">notifications</span>
+                        </button>
+                        <button
+                            class="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/20 dark:text-slate-100">
+                            <span class="material-symbols-outlined">settings</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-3 pl-4 border-l border-primary/10">
+                        <div class="text-right">
+                            <p class="text-sm font-bold leading-none">Juan Pérez</p>
+                            <p class="text-xs text-primary/60 dark:text-slate-400">Logística Proveedor</p>
+                        </div>
+                        <div class="size-10 rounded-full bg-primary/20 border-2 border-primary/20 bg-cover bg-center"
+                            data-alt="User profile photo avatar"
+                            style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBJxXEVb7kWTdybdIq8eE-LaWfhT4q3xGL-TXC6skcU8-Z9Up1GILkvUZ37YvRBhvoe5R4QizHknaMzjHZjIHTw4tMyKuvN3gO6B86pAJFnkOVGXTq2666wt2osqgsUVVOT-ZnoEQOhKJmzddQOQZUrtxYrcQ92Udv7icTfTvdCkTCgSFnaFb8vNcwowUbCumAa8DH5cCjlRU3D2Vu6JTYaJik6nC1zITF1rbxVAp6dw3ikABdGfgma4Ke8d4Z396FKMsyTUpdqaVLW')">
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <main class="flex-1 px-8 py-8 max-w-[1440px] mx-auto w-full">
+                <div class="mb-8">
+                    <h1 class="text-4xl font-black text-primary dark:text-white tracking-tight">Panel del Proveedor</h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1">Gestión operativa de envíos y validación de
+                        ciclos JIT (Just in Time)</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div
+                        class="flex flex-col gap-2 rounded-xl p-8 bg-white dark:bg-slate-900 border border-primary/10 shadow-sm">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span
+                                class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">inventory_2</span>
+                            <p class="text-slate-600 dark:text-slate-300 font-medium">Piezas a enviar hoy</p>
+                        </div>
+                        <p id="kpi-piezas-hoy"
+                            class="text-primary dark:text-white text-5xl font-black leading-tight tracking-tighter">--
+                        </p>
+                        <p class="text-xs text-primary/60 dark:text-slate-400 mt-2 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">trending_up</span> 12% más que ayer
+                        </p>
+                    </div>
+                    <div
+                        class="flex flex-col gap-2 rounded-xl p-8 bg-white dark:bg-slate-900 border border-primary/10 shadow-sm">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span
+                                class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">package_2</span>
+                            <p class="text-slate-600 dark:text-slate-300 font-medium">Empaques vacíos necesarios</p>
+                        </div>
+                        <p id="kpi-empaques-vacios"
+                            class="text-primary dark:text-white text-5xl font-black leading-tight tracking-tighter">--
+                        </p>
+                        <p class="text-xs text-primary/60 dark:text-slate-400 mt-2 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">schedule</span> Recolección programada
+                        </p>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-900 rounded-xl border border-primary/10 shadow-md overflow-hidden">
+                    <div
+                        class="px-6 py-5 border-b border-primary/10 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                        <h2 class="text-xl font-bold text-primary dark:text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined">shutter_speed</span>
+                            Ventanas de Recolección JIT
+                        </h2>
+                        <div class="flex gap-2">
+                            <button
+                                class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-primary/10 rounded-lg text-sm font-medium">
+                                <span class="material-symbols-outlined text-sm">filter_list</span> Filtrar
+                            </button>
+                            <button
+                                class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-primary/10 rounded-lg text-sm font-medium">
+                                <span class="material-symbols-outlined text-sm">download</span> Reporte
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr
+                                    class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
+                                    <th class="px-6 py-4">Hora Ventana</th>
+                                    <th class="px-6 py-4">Zona Logística</th>
+                                    <th class="px-6 py-4">No. Parte</th>
+                                    <th class="px-6 py-4">Tipo Empaque</th>
+                                    <th class="px-6 py-4 text-center">Vacías (Recibir)</th>
+                                    <th class="px-6 py-4 text-center">Llenas (Enviar)</th>
+                                    <th class="px-6 py-4">Estado</th>
+                                    <th class="px-6 py-4 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-ventanas-jit" class="divide-y divide-primary/5">
+                                <!-- Las filas se generarán dinámicamente con JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div
+                        class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-primary/10 text-xs text-slate-500 dark:text-slate-400 flex justify-between items-center">
+                        <p>Mostrando 3 de 8 ventanas programadas para hoy</p>
+                        <div class="flex gap-4">
+                            <span class="flex items-center gap-1"><span class="size-2 rounded-full bg-amber-500"></span>
+                                Pendiente</span>
+                            <span class="flex items-center gap-1"><span class="size-2 rounded-full bg-info"></span> En
+                                proceso</span>
+                            <span class="flex items-center gap-1"><span class="size-2 rounded-full bg-success"></span>
+                                Completado</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div id="entrega-critica"
+                        class="lg:col-span-2 rounded-xl p-6 bg-primary dark:bg-primary/40 text-white flex justify-between items-center overflow-hidden relative">
+                        <div class="relative z-10">
+                            <h3 class="text-xl font-bold mb-1">Próxima Entrega Crítica</h3>
+                            <p class="text-primary-100 opacity-80 mb-4 animate-pulse">Analizando próxima ventana JIT...
+                            </p>
+                            <button disabled
+                                class="bg-white/50 text-primary px-6 py-2 rounded-lg font-bold text-sm shadow-xl">Ver
+                                Detalles de Carga</button>
+                        </div>
+                        <div class="absolute -right-8 -bottom-8 opacity-10">
+                            <span class="material-symbols-outlined !text-[120px]">precision_manufacturing</span>
+                        </div>
+                    </div>
+                    <div id="eficiencia-panel"
+                        class="rounded-xl p-6 bg-white dark:bg-slate-900 border border-primary/10 shadow-sm">
+                        <h3 class="font-bold text-primary dark:text-white mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">analytics</span> Eficiencia del Día
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span>Cumplimiento Ventanas</span>
+                                    <span>--%</span>
+                                </div>
+                                <div class="w-full h-2 bg-primary/10 rounded-full overflow-hidden">
+                                    <div class="bg-success h-full w-[0%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span>Volumen JIT Óptimo</span>
+                                    <span>--%</span>
+                                </div>
+                                <div class="w-full h-2 bg-primary/10 rounded-full overflow-hidden">
+                                    <div class="bg-info h-full w-[0%]"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            <footer class="mt-auto py-6 px-8 border-t border-primary/5 text-center text-xs text-slate-500">
+                <p>© 2024 AKSYS Automotive Systems - JIT Management Module</p>
+            </footer>
+        </div>
+    </div>
+    <script>
+        const wsProto = window.location.protocol === "https:" ? "wss://" : "ws://";
+        const ws = new WebSocket(wsProto + window.location.host + "/ws");
+
+        ws.onopen = function () {
+            console.log("WebSocket Connect: Proveedor");
+        };
+
+        ws.onmessage = async function (event) {
+            const data = JSON.parse(event.data);
+            console.log("Mensaje WS recibido:", data);
+
+            if (data.tipo === "nueva_demanda") {
+                console.log("Nueva demanda detectada. Refrescando datos del panel...");
+                await cargarDatosProveedor();
+            } else if (data.tipo === "actualizacion_viaje" || (data.id_viaje && data.estado)) {
+                // Actualizar estado específico si corresponde a un viaje visible
+                const idViaje = data.id_viaje;
+                const estadoNuevo = data.estado || data.nuevo_estado;
+
+                const spanEstado = document.getElementById('estado-viaje-' + idViaje);
+                const btnEnvio = document.getElementById('btn-enviar-viaje-' + idViaje);
+
+                if (spanEstado && btnEnvio && estadoNuevo === "En_Transito") {
+                    spanEstado.innerHTML = `<span class="size-2 rounded-full bg-info animate-pulse"></span> En Tránsito`;
+                    btnEnvio.disabled = true;
+                    btnEnvio.classList.replace("bg-info", "bg-slate-300");
+                    btnEnvio.innerHTML = `<span class="material-symbols-outlined text-sm">done</span> Enviado`;
+                }
+            }
+        };
+
+        ws.onclose = function () {
+            console.log("WebSocket Disconnected");
+        };
+
+        async function cargarDatosProveedor() {
+            try {
+                const response = await fetch('/api/proveedor/ventanas');
+                if (!response.ok) throw new Error("Fallo al obtener datos del proveedor");
+                const data = await response.json();
+
+                document.getElementById('kpi-piezas-hoy').innerText = data.kpi_piezas_hoy.toLocaleString();
+                document.getElementById('kpi-empaques-vacios').innerText = data.kpi_empaques_vacios.toLocaleString();
+
+                const tbody = document.getElementById('tabla-ventanas-jit');
+                tbody.innerHTML = '';
+
+                data.ventanas.forEach(v => {
+                    let estadoHtml = '';
+                    let actionHtml = '';
+
+                    if (v.estado === "Pendiente") {
+                        estadoHtml = `<span id="estado-viaje-${v.id_viaje}" class="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold text-sm">
+                                        <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span> Pendiente
+                                      </span>`;
+                        actionHtml = `<button id="btn-enviar-viaje-${v.id_viaje}" onclick="confirmarEnvio(${v.id_viaje})"
+                                        class="px-4 py-2 bg-info hover:bg-info/90 text-white text-sm font-bold rounded-lg shadow-sm transition-all flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-sm">local_shipping</span> Confirmar envío
+                                      </button>`;
+                    } else if (v.estado === "En_Transito") {
+                        estadoHtml = `<span id="estado-viaje-${v.id_viaje}" class="inline-flex items-center gap-1 text-info font-bold text-sm">
+                                        <span class="size-2 rounded-full bg-info animate-pulse"></span> En Tránsito
+                                      </span>`;
+                        actionHtml = `<button id="btn-enviar-viaje-${v.id_viaje}" disabled class="px-4 py-2 bg-slate-300 dark:bg-slate-700 text-white text-sm font-bold rounded-lg transition-all flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-sm">done</span> Enviado
+                                      </button>`;
+                    } else {
+                        estadoHtml = `<span class="inline-flex items-center gap-1 text-success font-bold text-sm">
+                                        <span class="size-2 rounded-full bg-success"></span> Entregado
+                                      </span>`;
+                        actionHtml = `<button disabled class="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 text-sm font-bold rounded-lg cursor-not-allowed">
+                                        Completado
+                                      </button>`;
+                    }
+
+                    actionHtml += `
+                        <button onclick="open3DModal('${encodeURIComponent(JSON.stringify(v.partes))}')" class="px-3 py-2 bg-purple-100 text-purple-700 hover:bg-purple-200 text-sm font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm border border-purple-200" title="Ver acomodo 3D">
+                            <span class="material-symbols-outlined text-sm">view_in_ar</span> 3D
+                        </button>
+                    `;
+
+                    let rowHtml = '';
+                    const rowSpan = v.partes && v.partes.length > 0 ? v.partes.length : 1;
+
+                    let sobrecupoHtml = '';
+                    if (v.sobrecupo) {
+                        sobrecupoHtml = `<div class="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800">
+                                            <span class="material-symbols-outlined text-[12px]">warning</span> Sobrecupo (${v.ocupacion_porcentaje}%)
+                                         </div>`;
+                    } else {
+                        sobrecupoHtml = `<div class="mt-2 text-[10px] text-slate-500 font-medium">Ocupación: ${v.ocupacion_porcentaje}%</div>`;
+                    }
+
+                    if (v.partes && v.partes.length > 0) {
+                        v.partes.forEach((p, idx) => {
+                            if (idx === 0) {
+                                rowHtml += `
+                                <tr class="hover:bg-primary/5 transition-colors border-b border-slate-100 dark:border-slate-800/50">
+                                    <td class="px-6 py-4 align-top" rowspan="${rowSpan}">
+                                        <div class="font-bold text-primary dark:text-white text-base">${v.hora_ventana}</div>
+                                        ${sobrecupoHtml}
+                                    </td>
+                                    <td class="px-6 py-4 align-top" rowspan="${rowSpan}">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                                            ${v.zona_logistica}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-2 font-mono text-sm align-middle">${p.noparte}</td>
+                                    <td class="px-6 py-2 font-mono text-xs text-slate-500 align-middle">KLT ${p.tipo_empaque}</td>
+                                    <td class="px-6 py-2 text-center font-semibold text-sm align-middle">${p.vacias_recibir}</td>
+                                    <td class="px-6 py-2 text-center font-semibold text-sm text-green-700 dark:text-green-400 align-middle">${p.llenas_enviar}</td>
+                                    <td class="px-6 py-4 align-top" rowspan="${rowSpan}">${estadoHtml}</td>
+                                    <td class="px-6 py-4 align-top text-right" rowspan="${rowSpan}">
+                                        <div class="flex gap-2 justify-end">
+                                            ${actionHtml}
+                                        </div>
+                                    </td>
+                                </tr>
+                                `;
+                            } else {
+                                rowHtml += `
+                                <tr class="hover:bg-primary/5 transition-colors border-b border-slate-100 dark:border-slate-800/50">
+                                    <td class="px-6 py-2 font-mono text-sm align-middle">${p.noparte}</td>
+                                    <td class="px-6 py-2 font-mono text-xs text-slate-500 align-middle">KLT ${p.tipo_empaque}</td>
+                                    <td class="px-6 py-2 text-center font-semibold text-sm align-middle">${p.vacias_recibir}</td>
+                                    <td class="px-6 py-2 text-center font-semibold text-sm text-green-700 dark:text-green-400 align-middle">${p.llenas_enviar}</td>
+                                </tr>
+                                `;
+                            }
+                        });
+                    } else {
+                        rowHtml += `
+                        <tr class="hover:bg-primary/5 transition-colors border-b border-slate-100 dark:border-slate-800/50">
+                            <td class="px-6 py-4 align-top">
+                                <div class="font-bold text-primary dark:text-white text-base">${v.hora_ventana}</div>
+                                ${sobrecupoHtml}
+                            </td>
+                            <td class="px-6 py-4 align-top">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                                    ${v.zona_logistica}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 font-mono text-sm align-middle text-slate-400 italic">Sin demanda</td>
+                            <td class="px-6 py-4 font-mono text-xs text-slate-500 align-middle"></td>
+                            <td class="px-6 py-4 text-center font-semibold text-sm align-middle">0</td>
+                            <td class="px-6 py-4 text-center font-semibold text-sm text-green-700 dark:text-green-400 align-middle">0</td>
+                            <td class="px-6 py-4 align-top">${estadoHtml}</td>
+                            <td class="px-6 py-4 align-top text-right">
+                                <div class="flex gap-2 justify-end">
+                                    ${actionHtml}
+                                </div>
+                            </td>
+                        </tr>
+                        `;
+                    }
+
+                    tbody.insertAdjacentHTML('beforeend', rowHtml);
+                });
+
+                // --- HIDRATACIÓN DE PRÓXIMA ENTREGA CRÍTICA ---
+                const pendientes = data.ventanas.filter(v => v.estado === "Pendiente");
+                const entregaCriticaEl = document.getElementById("entrega-critica");
+
+                if (pendientes.length > 0) {
+                    // Encontrar el viaje pendiente con más piezas
+                    let viajeCritico = pendientes[0];
+                    let maxPiezas = 0;
+
+                    pendientes.forEach(v => {
+                        let totalPiezasViaje = 0;
+                        if (v.partes && v.partes.length > 0) {
+                            totalPiezasViaje = v.partes.reduce((sum, p) => sum + p.llenas_enviar, 0);
+                        }
+                        if (totalPiezasViaje > maxPiezas) {
+                            maxPiezas = totalPiezasViaje;
+                            viajeCritico = v;
+                        }
+                    });
+
+                    if (entregaCriticaEl) {
+                        entregaCriticaEl.innerHTML = `
+                            <div class="relative z-10">
+                                <h3 class="text-xl font-bold mb-1">Próxima Entrega Crítica</h3>
+                                <p class="text-primary-100 opacity-80 mb-4">La ventana JIT de las <span class="font-black text-white px-2 py-0.5 bg-red-500 rounded">${viajeCritico.hora_ventana}</span> requiere mover <span class="font-bold text-white">${maxPiezas} empaques</span> hacia ${viajeCritico.zona_logistica}.</p>
+                                <button onclick="open3DModal('${encodeURIComponent(JSON.stringify(viajeCritico.partes))}')" class="bg-white text-primary hover:bg-slate-100 transition-colors px-6 py-2 rounded-lg font-bold text-sm shadow-xl flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">view_in_ar</span> Ver Detalles de Carga
+                                </button>
+                            </div>
+                            <div class="absolute -right-8 -bottom-8 opacity-10">
+                                <span class="material-symbols-outlined !text-[120px]">precision_manufacturing</span>
+                            </div>
+                        `;
+                    }
+                } else {
+                    if (entregaCriticaEl) {
+                        entregaCriticaEl.classList.replace("bg-primary", "bg-success");
+                        entregaCriticaEl.innerHTML = `
+                            <div class="relative z-10">
+                                <h3 class="text-xl font-bold mb-1">¡Sin entregas críticas pendientes!</h3>
+                                <p class="text-white opacity-80 mb-4">Todas las ventanas JIT del día han sido procesadas o están vacías.</p>
+                            </div>
+                            <div class="absolute -right-8 -bottom-8 opacity-10">
+                                <span class="material-symbols-outlined !text-[120px]">task_alt</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                // --- HIDRATACIÓN DE EFICIENCIA DEL DÍA ---
+                const eficienciaPanelEl = document.getElementById("eficiencia-panel");
+                if (eficienciaPanelEl) {
+                    const totalVentanas = data.ventanas.length || 1;
+                    const entregadas = data.ventanas.filter(v => v.estado === 'Entregado').length;
+
+                    // Solo como KPI de la plataforma, unificamos % promedio de volumen de todas
+                    const sumaVolumen = data.ventanas.reduce((sum, v) => sum + v.ocupacion_porcentaje, 0);
+                    const avgVolumen = (sumaVolumen / totalVentanas).toFixed(1);
+
+                    const cumplimiento = Math.round((entregadas / totalVentanas) * 100);
+
+                    eficienciaPanelEl.innerHTML = `
+                        <h3 class="font-bold text-primary dark:text-white mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">analytics</span> Eficiencia del Día
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span>Cumplimiento Ventanas</span>
+                                    <span>${cumplimiento}%</span>
+                                </div>
+                                <div class="w-full h-2 bg-primary/10 rounded-full overflow-hidden">
+                                    <div class="bg-success h-full transition-all duration-1000" style="width: ${cumplimiento}%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span>Volumen JIT Óptimo</span>
+                                    <span>${avgVolumen}%</span>
+                                </div>
+                                <div class="w-full h-2 bg-primary/10 rounded-full overflow-hidden">
+                                    <div class="bg-info h-full transition-all duration-1000" style="width: ${Math.min(100, avgVolumen)}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+            } catch (err) {
+                console.error("Error al cargar datos del proveedor:", err);
+            }
+        }
+
+        async function confirmarEnvio(idViaje) {
+            try {
+                const btn = document.getElementById('btn-enviar-viaje-' + idViaje);
+                btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">autorenew</span> Procesando...`;
+
+                const req = await fetch('/api/actualizar-estado', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_viaje: idViaje, nuevo_estado: "En_Transito" })
+                });
+
+                if (!req.ok) throw new Error("Fallo en API");
+
+                document.getElementById('estado-viaje-' + idViaje).innerHTML = `<span class="size-2 rounded-full bg-info"></span> En Tránsito`;
+                btn.classList.replace("bg-info", "bg-slate-300");
+                btn.innerHTML = `<span class="material-symbols-outlined text-sm">done</span> Enviado`;
+                btn.disabled = true;
+
+            } catch (err) {
+                alert("Error al actualizar: " + err);
+                const btn = document.getElementById('btn-enviar-viaje-' + idViaje);
+                btn.innerHTML = `<span class="material-symbols-outlined text-sm">local_shipping</span> Reintentar`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarDatosProveedor();
+        });
+
+        const BIN_L = 6500;
+        const BIN_W = 2500;
+        const BIN_H = 2400;
+
+        let scene, camera, renderer, controls;
+        let boxMeshes = [];
+        let is3DInit = false;
+
+        function open3DModal(partesJsonEncoded) {
+            document.getElementById('modal-3d').classList.remove('hidden');
+            const partes = JSON.parse(decodeURIComponent(partesJsonEncoded));
+
+            if (!is3DInit) {
+                init3D();
+                animate();
+                is3DInit = true;
+            }
+            setTimeout(onWindowResize, 100);
+
+            packAndDraw(partes);
+        }
+
+        function close3DModal() {
+            document.getElementById('modal-3d').classList.add('hidden');
+        }
+
+        function packAndDraw(partes) {
+            let boxesToPack = [];
+            partes.forEach(p => {
+                const color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                const w = Math.round((p.w_m || 0.6) * 1000);
+                const h = Math.round((p.h_m || 0.6) * 1000);
+                const l = Math.round((p.l_m || 0.8) * 1000);
+
+                for (let i = 0; i < p.llenas_enviar; i++) {
+                    boxesToPack.push({
+                        w: w, h: h, l: l,
+                        color: color,
+                        volume: w * h * l
+                    });
+                }
+            });
+
+            boxesToPack.sort((a, b) => b.volume - a.volume);
+
+            let freeSpaces = [{ x: 0, y: 0, z: 0, w: BIN_W, h: BIN_H, l: BIN_L }];
+            let packedItems = [];
+
+            for (let box of boxesToPack) {
+                freeSpaces.sort((a, b) => {
+                    if (a.y !== b.y) return a.y - b.y;
+                    if (a.z !== b.z) return a.z - b.z;
+                    return a.x - b.x;
+                });
+
+                let bestSpaceIdx = -1;
+                for (let i = 0; i < freeSpaces.length; i++) {
+                    let s = freeSpaces[i];
+                    if (box.w <= s.w && box.h <= s.h && box.l <= s.l) {
+                        bestSpaceIdx = i;
+                        break;
+                    }
+                }
+
+                if (bestSpaceIdx !== -1) {
+                    let space = freeSpaces.splice(bestSpaceIdx, 1)[0];
+                    packedItems.push({
+                        ...box,
+                        x: space.x,
+                        y: space.y,
+                        z: space.z
+                    });
+
+                    let newSpaces = splitSpace(space, box);
+                    for (let ns of newSpaces) {
+                        if (ns.w > 0 && ns.h > 0 && ns.l > 0) {
+                            freeSpaces.push(ns);
+                        }
+                    }
+                }
+            }
+            drawPackedBoxes3D(packedItems);
+        }
+
+        function splitSpace(space, box) {
+            let w_rem = space.w - box.w;
+            let h_rem = space.h - box.h;
+            let l_rem = space.l - box.l;
+
+            let c1 = [
+                { x: space.x + box.w, y: space.y, z: space.z, w: w_rem, h: space.h, l: space.l },
+                { x: space.x, y: space.y + box.h, z: space.z, w: box.w, h: h_rem, l: space.l },
+                { x: space.x, y: space.y, z: space.z + box.l, w: box.w, h: box.h, l: l_rem }
+            ];
+
+            let c2 = [
+                { x: space.x, y: space.y + box.h, z: space.z, w: space.w, h: h_rem, l: space.l },
+                { x: space.x, y: space.y, z: space.z + box.l, w: space.w, h: box.h, l: l_rem },
+                { x: space.x + box.w, y: space.y, z: space.z, w: w_rem, h: box.h, l: box.l }
+            ];
+
+            let c3 = [
+                { x: space.x, y: space.y, z: space.z + box.l, w: space.w, h: space.h, l: l_rem },
+                { x: space.x + box.w, y: space.y, z: space.z, w: w_rem, h: space.h, l: box.l },
+                { x: space.x, y: space.y + box.h, z: space.z, w: box.w, h: h_rem, l: box.l }
+            ];
+
+            let bestConfig = c1;
+            let maxVol = 0;
+
+            [c1, c2, c3].forEach(config => {
+                let maxSubVol = 0;
+                config.forEach(s => {
+                    let v = s.w * s.h * s.l;
+                    if (v > maxSubVol) maxSubVol = v;
+                });
+                if (maxSubVol > maxVol) {
+                    maxVol = maxSubVol;
+                    bestConfig = config;
+                }
+            });
+            return bestConfig;
+        }
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf3f4f6);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(7, 6, 10);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 0, 0);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            const binW_m = BIN_W / 1000;
+            const binH_m = BIN_H / 1000;
+            const binL_m = BIN_L / 1000;
+
+            const binGeometry = new THREE.BoxGeometry(binW_m, binH_m, binL_m);
+            const binEdges = new THREE.EdgesGeometry(binGeometry);
+            const binLine = new THREE.LineSegments(binEdges, new THREE.LineBasicMaterial({ color: 0x3b82f6, linewidth: 2 }));
+
+            const binMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.05, side: THREE.DoubleSide });
+            const binMesh = new THREE.Mesh(binGeometry, binMat);
+
+            scene.add(binLine);
+            scene.add(binMesh);
+
+            const gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xdddddd);
+            gridHelper.position.y = -binH_m / 2;
+            scene.add(gridHelper);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (container && camera && renderer) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        }
+
+        function drawPackedBoxes3D(packed) {
+            boxMeshes.forEach(mesh => scene.remove(mesh));
+            boxMeshes = [];
+
+            const binW_m = BIN_W / 1000;
+            const binH_m = BIN_H / 1000;
+            const binL_m = BIN_L / 1000;
+
+            packed.forEach(box => {
+                const w_m = box.w / 1000;
+                const h_m = box.h / 1000;
+                const l_m = box.l / 1000;
+
+                const geometry = new THREE.BoxGeometry(w_m, h_m, l_m);
+                const material = new THREE.MeshStandardMaterial({
+                    color: box.color,
+                    roughness: 0.7,
+                    metalness: 0.1
+                });
+
+                const mesh = new THREE.Mesh(geometry, material);
+                const edges = new THREE.EdgesGeometry(geometry);
+                const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 }));
+                mesh.add(line);
+
+                const x_pos = (box.x / 1000) + (w_m / 2) - (binW_m / 2);
+                const y_pos = (box.y / 1000) + (h_m / 2) - (binH_m / 2);
+                const z_pos = (box.z / 1000) + (l_m / 2) - (binL_m / 2);
+
+                mesh.position.set(x_pos, y_pos, z_pos);
+
+                scene.add(mesh);
+                boxMeshes.push(mesh);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (controls) controls.update();
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+    </script>
+
+    <!-- MODAL 3D -->
+    <div id="modal-3d"
+        class="fixed inset-0 z-50 hidden bg-gray-900/50 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 md:w-4/5 h-4/5 flex flex-col overflow-hidden relative">
+            <div class="flex justify-between items-center p-4 border-b border-gray-200 bg-slate-50">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800">Simulador 3D - Disposición de Carga en Camión</h2>
+                    <p class="text-xs text-gray-500">Camión: 6.5m (L) x 2.5m (A) x 2.4m (H) - Base Algorithm First-Fit
+                        Guillotina</p>
+                </div>
+                <button onclick="close3DModal()" class="text-gray-400 hover:text-red-500 transition-colors">
+                    <span class="material-symbols-outlined text-2xl">close</span>
+                </button>
+            </div>
+
+            <div class="flex-1 relative bg-gray-100" id="canvas-container">
+                <div
+                    class="absolute bottom-4 right-4 bg-white/80 backdrop-blur p-3 rounded shadow text-xs text-gray-600 pointer-events-none z-10">
+                    <p>🖱️ <b>Click Izq + Arrastrar:</b> Rotar la cámara</p>
+                    <p>🖱️ <b>Click Der + Arrastrar:</b> Mover la escena</p>
+                    <p>🖱️ <b>Rueda del Ratón:</b> Acercar/Alejar</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

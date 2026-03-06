@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Vista del Repartidor – VW / DHL</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1e0052",
+                        "primary-light": "#2d0070",
+                        "accent-yellow": "#FBBF24",
+                        "background-light": "#f0eef6",
+                    },
+                    fontFamily: { "display": ["Inter"] },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+        }
+
+        body {
+            min-height: max(884px, 100dvh);
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(251, 191, 36, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+            }
+        }
+
+        .pulsing-dot {
+            animation: pulse-ring 1.5s infinite;
+        }
+
+        .task-item {
+            transition: all 0.3s ease;
+        }
+
+        .task-item.completed {
+            opacity: 0.55;
+        }
+
+        .task-item.completed h4 {
+            text-decoration: line-through;
+        }
+
+        .bar-fill {
+            transition: width 1s ease-in-out;
+        }
+
+        @keyframes slide-in {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-in {
+            animation: slide-in 0.4s ease forwards;
+        }
+
+        .slide-in-delay {
+            animation: slide-in 0.4s ease 0.15s both;
+        }
+    </style>
+</head>
+
+<body class="bg-background-light text-slate-900 font-display">
+    <div class="relative flex min-h-screen w-full flex-col pb-44">
+
+        <!-- ── TOP BAR ── -->
+        <header class="sticky top-0 z-50 bg-primary shadow-lg px-4 py-3">
+            <div class="flex items-center justify-between gap-4 max-w-md mx-auto">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-white text-3xl">local_shipping</span>
+                    <div>
+                        <h1 class="text-lg font-black text-white leading-tight">Viaje Actual</h1>
+                        <p class="text-xs text-white/60 font-medium">DHL Express · Planta Puebla</p>
+                    </div>
+                </div>
+                <!-- Reloj en tiempo real -->
+                <div class="flex items-center gap-2 bg-white/15 px-3 py-1.5 rounded-full">
+                    <span class="material-symbols-outlined text-white text-sm">schedule</span>
+                    <span id="reloj-actual" class="font-black text-white text-sm tabular-nums">--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 w-full max-w-md mx-auto p-4 space-y-4">
+
+            <!-- ── PROGRESO DEL DÍA ── -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 slide-in">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Progreso del Día</span>
+                    <span id="etiqueta-progreso" class="text-xs font-black text-primary">0 / 10 entregas</span>
+                </div>
+                <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                    <div id="barra-progreso-dia" class="bg-primary h-full rounded-full bar-fill" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- ── CUENTA REGRESIVA ── -->
+            <div class="flex gap-3 justify-center slide-in-delay">
+                <div
+                    class="flex-1 flex flex-col items-center bg-white p-3 rounded-2xl border-2 border-primary/20 shadow-sm">
+                    <span id="cd-horas" class="text-2xl font-black text-primary tabular-nums">00</span>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 mt-1">Horas</span>
+                </div>
+                <div
+                    class="flex-1 flex flex-col items-center bg-white p-3 rounded-2xl border-2 border-primary/20 shadow-sm">
+                    <span id="cd-minutos" class="text-2xl font-black text-primary tabular-nums">00</span>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 mt-1">Minutos</span>
+                </div>
+                <div
+                    class="flex-1 flex flex-col items-center bg-white p-3 rounded-2xl border-2 border-primary/20 shadow-sm">
+                    <span id="cd-segundos" class="text-2xl font-black text-primary tabular-nums">00</span>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 mt-1">Segundos</span>
+                </div>
+            </div>
+
+            <!-- ── TARJETA PRINCIPAL DEL VIAJE ── -->
+            <div class="bg-primary text-white p-5 rounded-2xl shadow-lg relative overflow-hidden slide-in">
+                <div class="relative z-10">
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-white/60 mb-1">Operativa de Salida
+                    </p>
+                    <h2 id="hora-salida" class="text-2xl font-black mb-1">Cargando…</h2>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="material-symbols-outlined text-accent-yellow text-xl">factory</span>
+                        <h3 id="zona-logistica" class="text-xl font-black text-accent-yellow uppercase tracking-tight">
+                            NAVE 25
+                        </h3>
+                    </div>
+                    <p class="text-sm font-medium text-white/70 mt-0.5">Proveedor: AKSYS · DHL Express</p>
+
+                    <!-- Cubicaje -->
+                    <div class="mt-5">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-xs font-bold uppercase text-white/70">Cubicaje Volumétrico</span>
+                            <span id="porcentaje-texto" class="text-2xl font-black">--%</span>
+                        </div>
+                        <div class="w-full bg-white/20 h-4 rounded-full overflow-hidden">
+                            <div id="porcentaje-barra" class="h-full rounded-full bar-fill"
+                                style="width:0%; background: linear-gradient(90deg,#86efac,#22c55e)"></div>
+                        </div>
+                        <div class="flex justify-between mt-1">
+                            <span class="text-[10px] text-white/50">0%</span>
+                            <span class="text-[10px] text-white/50">Óptimo: ≥85%</span>
+                            <span class="text-[10px] text-white/50">100%</span>
+                        </div>
+                    </div>
+
+                    <!-- Resumen de carga -->
+                    <div class="mt-4 flex items-center gap-3">
+                        <div class="flex-1 bg-white/10 rounded-xl px-3 py-2 text-center">
+                            <p id="total-cajas-badge" class="text-xl font-black">--</p>
+                            <p class="text-[10px] text-white/60 uppercase font-bold">Cajas llenas</p>
+                        </div>
+                        <div class="flex-1 bg-white/10 rounded-xl px-3 py-2 text-center">
+                            <p id="total-partes-badge" class="text-xl font-black">--</p>
+                            <p class="text-[10px] text-white/60 uppercase font-bold">Núm. de Parte</p>
+                        </div>
+                        <div id="estado-badge" class="flex-1 bg-white/10 rounded-xl px-3 py-2 text-center">
+                            <p id="estado-texto" class="text-base font-black">--</p>
+                            <p class="text-[10px] text-white/60 uppercase font-bold">Estado</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Decoración -->
+                <div
+                    class="absolute top-0 right-0 -mr-10 -mt-10 w-36 h-36 bg-white/5 rounded-full blur-2xl pointer-events-none">
+                </div>
+                <div
+                    class="absolute bottom-0 left-0 -ml-6 -mb-6 w-28 h-28 bg-accent-yellow/5 rounded-full blur-2xl pointer-events-none">
+                </div>
+            </div>
+
+            <!-- ── CHECKLIST DE PARTES ── -->
+            <div>
+                <h3 class="text-base font-black uppercase text-slate-500 flex items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-primary">fact_check</span>
+                    Lista de Carga – Partes a Entregar
+                </h3>
+                <div id="lista-partes" class="space-y-2">
+                    <p class="text-sm text-slate-400 text-center py-4">Cargando lista…</p>
+                </div>
+            </div>
+
+            <!-- ── DOCUMENTACIÓN ── -->
+            <div
+                class="flex items-center gap-4 bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm opacity-60">
+                <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-slate-400 text-2xl">description</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-400 uppercase">Documentación</p>
+                    <p id="doc-referencia" class="text-base font-black text-slate-400 truncate">Hoja de Ruta #--</p>
+                </div>
+                <input class="w-7 h-7 rounded-lg text-slate-300 border-slate-200" type="checkbox" disabled />
+            </div>
+
+        </main>
+
+        <!-- ── FOOTER STICKY ── -->
+        <footer
+            class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
+            <div class="max-w-md mx-auto space-y-3">
+                <button id="btn-entregar-viaje"
+                    class="w-full bg-primary text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-all uppercase tracking-wide">
+                    <span class="material-symbols-outlined">hourglass_empty</span>
+                    Esperando confirmación AKSYS…
+                </button>
+                <button id="btn-reportar"
+                    class="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                    <span class="material-symbols-outlined text-red-500 text-lg">warning</span>
+                    Reportar Incidencia
+                </button>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- ── MODAL INCIDENCIA ── -->
+    <div id="modal-incidencia" class="hidden fixed inset-0 bg-black/60 z-50 flex items-end justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 class="text-lg font-black text-red-600 flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined">report</span> Reportar Incidencia
+            </h3>
+            <select id="tipo-incidencia" class="w-full border rounded-xl p-3 mb-3 text-sm font-medium">
+                <option value="">Selecciona el tipo de problema…</option>
+                <option value="retraso">Retraso de tráfico</option>
+                <option value="averia">Avería del camión</option>
+                <option value="error_carga">Error en carga / caja dañada</option>
+                <option value="destino">Problema en destino AKSYS</option>
+                <option value="otro">Otro</option>
+            </select>
+            <textarea id="nota-incidencia" placeholder="Notas adicionales (opcional)…"
+                class="w-full border rounded-xl p-3 text-sm resize-none h-20 mb-4 font-medium"></textarea>
+            <div class="flex gap-3">
+                <button onclick="cerrarModalIncidencia()"
+                    class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm">Cancelar</button>
+                <button onclick="enviarIncidencia()"
+                    class="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold text-sm">Enviar Reporte</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ════════════════════════════════════════════════════
+        //  ESTADO GLOBAL
+        // ════════════════════════════════════════════════════
+        let viajeActual = null;
+        let intervalReloj = null;
+        let intervalCuentaRegresiva = null;
+
+        // ════════════════════════════════════════════════════
+        //  WebSocket
+        // ════════════════════════════════════════════════════
+        const wsProto = window.location.protocol === "https:" ? "wss://" : "ws://";
+        const ws = new WebSocket(wsProto + window.location.host + "/ws");
+        ws.onopen = () => console.log("WS: Repartidor DHL conectado");
+        ws.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.tipo === "nueva_demanda" || msg.tipo === "actualizacion_viaje") {
+                console.log("WS: Datos actualizados – recargando viaje…");
+                await cargarViajeDHL();
+            }
+        };
+        ws.onclose = () => console.log("WS desconectado");
+
+        // ════════════════════════════════════════════════════
+        //  RELOJ EN TIEMPO REAL
+        // ════════════════════════════════════════════════════
+        function iniciarReloj() {
+            const actualizarReloj = () => {
+                const ahora = new Date();
+                const h = String(ahora.getHours()).padStart(2, '0');
+                const m = String(ahora.getMinutes()).padStart(2, '0');
+                document.getElementById('reloj-actual').textContent = `${h}:${m}`;
+            };
+            actualizarReloj();
+            intervalReloj = setInterval(actualizarReloj, 1000);
+        }
+
+        // ════════════════════════════════════════════════════
+        //  CUENTA REGRESIVA HACIA LA VENTANA JIT
+        // ════════════════════════════════════════════════════
+        function iniciarCuentaRegresiva(horaVentanaStr) {
+            if (intervalCuentaRegresiva) clearInterval(intervalCuentaRegresiva);
+
+            const actualizar = () => {
+                const ahora = new Date();
+                const [hh, mm] = horaVentanaStr.split(':').map(Number);
+                const target = new Date(ahora);
+                target.setHours(hh, mm, 0, 0);
+
+                // Si ya pasó la hora hoy, apuntar a mañana
+                if (target <= ahora) target.setDate(target.getDate() + 1);
+
+                const diff = Math.max(0, Math.floor((target - ahora) / 1000));
+                const horas = Math.floor(diff / 3600);
+                const minutos = Math.floor((diff % 3600) / 60);
+                const segundos = diff % 60;
+
+                document.getElementById('cd-horas').textContent = String(horas).padStart(2, '0');
+                document.getElementById('cd-minutos').textContent = String(minutos).padStart(2, '0');
+                document.getElementById('cd-segundos').textContent = String(segundos).padStart(2, '0');
+            };
+
+            actualizar();
+            intervalCuentaRegresiva = setInterval(actualizar, 1000);
+        }
+
+        // ════════════════════════════════════════════════════
+        //  RENDERIZAR LISTA DE PARTES
+        // ════════════════════════════════════════════════════
+        function renderizarPartes(partes) {
+            const container = document.getElementById('lista-partes');
+            if (!partes || partes.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Sin partes asignadas</p>';
+                return;
+            }
+
+            container.innerHTML = partes.map((p, idx) => `
+                <div class="task-item flex items-center gap-3 bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm active:scale-[0.98] transition-transform"
+                     id="task-${idx}" data-idx="${idx}">
+                    <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-primary text-2xl">inventory_2</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">No. Parte · ${p.tipo_empaque}</p>
+                        <h4 class="text-base font-black text-primary font-mono tracking-tight leading-tight">${p.noparte}</h4>
+                        <p class="text-xs font-medium text-slate-500 mt-0.5">
+                            <span class="inline-flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px] text-primary">deployed_code</span>
+                                ${p.cajas} caja${p.cajas !== 1 ? 's' : ''} llena${p.cajas !== 1 ? 's' : ''}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="shrink-0">
+                        <input type="checkbox" class="w-7 h-7 rounded-lg text-primary border-slate-300 focus:ring-primary cursor-pointer"
+                            onchange="marcarTarea(${idx}, this.checked)" />
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function marcarTarea(idx, checked) {
+            const item = document.getElementById(`task-${idx}`);
+            if (checked) {
+                item.classList.add('completed');
+                item.querySelector('.w-12').style.background = 'rgba(34,197,94,0.15)';
+                item.querySelector('.material-symbols-outlined').textContent = 'check_circle';
+                item.querySelector('.material-symbols-outlined').style.color = '#16a34a';
+            } else {
+                item.classList.remove('completed');
+                item.querySelector('.w-12').style.background = '';
+                item.querySelector('.material-symbols-outlined').textContent = 'inventory_2';
+                item.querySelector('.material-symbols-outlined').style.color = '';
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        //  CARGA PRINCIPAL DE DATOS
+        // ════════════════════════════════════════════════════
+        async function cargarViajeDHL() {
+            try {
+                const resp = await fetch('/api/repartidor/viaje-actual');
+                if (!resp.ok) throw new Error('Error al obtener el viaje actual');
+                const data = await resp.json();
+
+                // Caso: todos los viajes completados
+                if (data.mensaje) {
+                    document.getElementById('hora-salida').textContent = data.mensaje;
+                    document.getElementById('zona-logistica').textContent = "ZONA LOGÍSTICA: --";
+                    document.getElementById('porcentaje-texto').textContent = "✓";
+                    document.getElementById('porcentaje-barra').style.width = "100%";
+                    document.getElementById('lista-partes').innerHTML =
+                        `<div class="flex flex-col items-center py-8 gap-3">
+                            <span class="material-symbols-outlined text-green-500 text-6xl">task_alt</span>
+                            <p class="font-black text-green-700 text-lg">¡Todas las entregas completadas!</p>
+                            <p class="text-sm text-slate-400 text-center">Gran trabajo por hoy. Sin nuevas asignaciones pendientes.</p>
+                        </div>`;
+
+                    if (data.progreso) actualizarProgreso(data.progreso);
+
+                    const btn = document.getElementById('btn-entregar-viaje');
+                    btn.disabled = true;
+                    btn.className = "w-full bg-green-600 text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 uppercase tracking-wide";
+                    btn.innerHTML = `<span class="material-symbols-outlined">done_all</span> Día completado`;
+                    return;
+                }
+
+                viajeActual = data;
+
+                // ── Rellenar UI principal ──
+                document.getElementById('hora-salida').textContent = `Próxima salida: ${data.hora_salida} AM`;
+                document.getElementById('zona-logistica').textContent = `ZONA LOGÍSTICA: ${data.destino.toUpperCase()}`;
+
+                const pct = data.porcentaje_cubicaje;
+                document.getElementById('porcentaje-texto').textContent = `${pct}%`;
+                document.getElementById('porcentaje-barra').style.width = `${pct}%`;
+
+                // Color de la barra según eficiencia
+                const barra = document.getElementById('porcentaje-barra');
+                if (pct >= 85) {
+                    barra.style.background = 'linear-gradient(90deg,#86efac,#22c55e)';
+                } else if (pct >= 60) {
+                    barra.style.background = 'linear-gradient(90deg,#fde68a,#f59e0b)';
+                } else {
+                    barra.style.background = 'linear-gradient(90deg,#fca5a5,#ef4444)';
+                }
+
+                // Badges de resumen
+                document.getElementById('total-cajas-badge').textContent = data.cantidad_cajas;
+                document.getElementById('total-partes-badge').textContent = data.partes ? data.partes.length : '--';
+
+                const estadoEl = document.getElementById('estado-texto');
+                const estadoBadge = document.getElementById('estado-badge');
+                if (data.estado === 'Entregado') {
+                    estadoEl.textContent = '✓ OK';
+                    estadoBadge.style.background = 'rgba(34,197,94,0.2)';
+                } else if (data.estado === 'En_Transito') {
+                    estadoEl.textContent = '🚛 En ruta';
+                    estadoBadge.style.background = 'rgba(59,130,246,0.2)';
+                } else {
+                    estadoEl.textContent = '⏳ Pendiente';
+                    estadoBadge.style.background = 'rgba(255,255,255,0.1)';
+                }
+
+                // Progreso del día
+                if (data.progreso) actualizarProgreso(data.progreso);
+
+                // Lista de partes
+                renderizarPartes(data.partes);
+
+                // Documentación
+                document.getElementById('doc-referencia').textContent = `Hoja de Ruta #${String(data.id_viaje).padStart(4, '0')}`;
+
+                // Botón principal
+                actualizarBoton(data);
+
+                // Cuenta regresiva
+                iniciarCuentaRegresiva(data.hora_salida);
+
+            } catch (err) {
+                console.error("Error al cargar datos del chofer:", err);
+                document.getElementById('lista-partes').innerHTML =
+                    `<p class="text-sm text-red-400 text-center py-6">⚠ No se pudieron cargar los datos. Verifica tu conexión.</p>`;
+            }
+        }
+
+        function actualizarProgreso(progreso) {
+            const { entregadas, total } = progreso;
+            const pct = total > 0 ? Math.round(entregadas / total * 100) : 0;
+            document.getElementById('etiqueta-progreso').textContent = `${entregadas} / ${total} entregas`;
+            document.getElementById('barra-progreso-dia').style.width = `${pct}%`;
+        }
+
+        function actualizarBoton(data) {
+            const btn = document.getElementById('btn-entregar-viaje');
+            btn.onclick = () => confirmarEntrega(data.id_viaje);
+
+            if (data.estado === 'En_Transito') {
+                btn.disabled = false;
+                btn.className = "w-full bg-primary text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-all uppercase tracking-wide";
+                btn.innerHTML = `Confirmar Entrega y Liberar Camión <span class="material-symbols-outlined">check_circle</span>`;
+            } else if (data.estado === 'Pendiente') {
+                btn.disabled = true;
+                btn.className = "w-full bg-slate-300 text-slate-500 py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 uppercase tracking-wide cursor-not-allowed";
+                btn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> Esperando autorización AKSYS…`;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        //  CONFIRMAR ENTREGA
+        // ════════════════════════════════════════════════════
+        async function confirmarEntrega(idViaje) {
+            try {
+                const btn = document.getElementById('btn-entregar-viaje');
+                btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">autorenew</span> Registrando entrega…`;
+                btn.disabled = true;
+
+                const req = await fetch('/api/actualizar-estado', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_viaje: idViaje, nuevo_estado: "Entregado" })
+                });
+
+                if (!req.ok) throw new Error("Fallo en API al confirmar entrega");
+
+                btn.className = "w-full bg-green-600 text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 uppercase tracking-wide";
+                btn.innerHTML = `<span class="material-symbols-outlined">done_all</span> ¡Entregado con éxito!`;
+
+                setTimeout(() => {
+                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                    cargarViajeDHL(); // Carga el siguiente viaje automáticamente
+                }, 1200);
+
+            } catch (err) {
+                alert("Error al registrar entrega: " + err.message);
+                const btn = document.getElementById('btn-entregar-viaje');
+                btn.innerHTML = `Reintentar`;
+                btn.disabled = false;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        //  MODAL INCIDENCIA
+        // ════════════════════════════════════════════════════
+        document.getElementById('btn-reportar').addEventListener('click', () => {
+            document.getElementById('modal-incidencia').classList.remove('hidden');
+        });
+
+        function cerrarModalIncidencia() {
+            document.getElementById('modal-incidencia').classList.add('hidden');
+        }
+
+        function enviarIncidencia() {
+            const tipo = document.getElementById('tipo-incidencia').value;
+            const nota = document.getElementById('nota-incidencia').value;
+            if (!tipo) { alert('Selecciona el tipo de incidencia'); return; }
+            // Aquí se podría hacer un POST a un endpoint de incidencias
+            console.log('Incidencia reportada:', { tipo, nota, id_viaje: viajeActual?.id_viaje });
+            alert(`✅ Incidencia reportada: "${tipo}". El controlador VW ha sido notificado.`);
+            cerrarModalIncidencia();
+        }
+
+        // ════════════════════════════════════════════════════
+        //  INICIALIZACIÓN
+        // ════════════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', () => {
+            iniciarReloj();
+            cargarViajeDHL();
+            // Refresca cada 30 segundos para capturar cambios de estado
+            setInterval(cargarViajeDHL, 30000);
+        });
+    </script>
+</body>
+
+</html>

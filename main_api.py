@@ -1,0 +1,674 @@
+import os
+import sqlite3
+import json
+import math
+from contextlib import asynccontextmanager
+import shutil
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, File, UploadFile
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
+
+from cubicaje_engine import main as ejecutar_motor_cubicaje
+from data_pipeline import procesar_y_guardar_demanda
+
+DB_PATH = '/Users/danielfloresrojas/Downloads/VW_R1/logistica_vw.db'
+
+# === 1. MANEJADOR DE CONEXIONES WEBSOCKETS ===
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        # Convertimos el dict en string JSON plano para transmitirlo
+        msg_str = json.dumps(message)
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(msg_str)
+            except Exception:
+                pass # Si el socket se rompió lo limpiaremos después
+
+manager = ConnectionManager()
+
+# === 2. INICIALIZADOR DE BASE DE DATOS (VIAJES ACTIVOS) ===
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Lógica que corre al arrancar el servidor
+    init_db_mock_viajes()
+    yield
+    # (Opcional) Lógica al apagar el servidor
+
+def init_db_mock_viajes():
+    """ 
+    Crea la tabla de viajes activos y la llena con viajes reales
+    basados en la demanda del Cubicaje Engine y las ventanas de AKSYS.
+    """
+    if not os.path.exists(DB_PATH):
+        return
+        
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Eliminar si existe para simular "Inicio de Día Fresco"
+        cursor.execute("DROP TABLE IF EXISTS viajes_activos")
+        
+        cursor.execute("""
+            CREATE TABLE viajes_activos (
+                id_viaje INTEGER PRIMARY KEY AUTOINCREMENT,
+                noparte TEXT,
+                ventana_hora TEXT,
+                estado TEXT
+            )
+        """)
+        
+        ventanas_aksys = ["06:00", "08:20", "10:40", "13:00", "15:35", "18:10", "20:30", "22:50", "01:10", "03:30"]
+        plan = ejecutar_motor_cubicaje(DB_PATH)
+        if plan and plan.get("Detalle_Por_Num_Parte"):
+            partes = plan["Detalle_Por_Num_Parte"]
+            mock_data = []
+            for i, p in enumerate(partes):
+                noparte = p["Noparte"]
+                hora = ventanas_aksys[i % len(ventanas_aksys)]
+                # Solo para simular, el primero lo ponemos Entregado, los demás Pendiente
+                estado = "Entregado" if i == 0 else "Pendiente"
+                mock_data.append((noparte, hora, estado))
+            
+            cursor.executemany("INSERT INTO viajes_activos (noparte, ventana_hora, estado) VALUES (?, ?, ?)", mock_data)
+        
+        conn.commit()
+        conn.close()
+        print(">> Tabla 'viajes_activos' inicializada con datos reales JIT.")
+    except Exception as e:
+        print(f"Error inicializando viajes mock: {e}")
+
+# Configuración inicial de FastAPI
+app = FastAPI(title="Logística VW - MVP API (RealTime)", version="2.0.0", lifespan=lifespan)
+
+# 2. Configurar CORS (Permitir que el frontend JS consulte sin bloqueos)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Montar los estáticos para poder acceder desde localtunnel o red
+app.mount("/frontend", StaticFiles(directory=os.path.join(os.path.dirname(DB_PATH), "frontend")), name="frontend")
+
+
+@app.get("/")
+def home():
+    """Ruta base para verificar que el servidor está corriendo"""
+    return {"mensaje": "API de Logística VW funcionando (WebSockets Habilitados)"}
+
+
+@app.get("/api/resumen-logistico")
+def get_resumen_logistico():
+    # ... Lógica nativa de obtención ...
+    if not os.path.exists(DB_PATH):
+        raise HTTPException(status_code=404, detail="Base de datos SQLite no encontrada.")
+        
+    try:
+        resultado_plan = ejecutar_motor_cubicaje(DB_PATH)
+        if resultado_plan is None or "error" in resultado_plan:
+             raise HTTPException(status_code=400, detail="Error o falta de datos procesando la demanda.")
+        return resultado_plan
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del motor: {str(e)}")
+
+
+@app.get("/api/proveedor/piezas-hoy")
+def get_total_piezas_hoy():
+    if not os.path.exists(DB_PATH):
+        raise HTTPException(status_code=404, detail="Base de datos no encontrada.")
+        
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT SUM(CAST(DAILY AS REAL)) FROM demanda_besi WHERE DAILY > 0")
+        total = cursor.fetchone()[0]
+        conn.close()
+        return {
+            "fecha_reporte": "Hoy",
+            "total_piezas_demandadas": int(total) if total is not None else 0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error consultando SQL: {str(e)}")
+
+# === 3. ENDPOINTS DE TIEMPO REAL === 
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Mantener conexión viva esperando mensajes (Heartbeat)
+            data = await websocket.receive_text()
+            # En este MVP los clientes solo ecuchan por el WS, pero mandan acciones vía REST HTTP.
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+@app.get("/api/viajes-activos")
+def read_viajes_activos():
+    """ Devuelve el listado actual SQL de los viajes """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM viajes_activos")
+        filas = cursor.fetchall()
+        conn.close()
+        
+        viajes = [{"id_viaje": f[0], "noparte": f[1], "ventana_hora": f[2], "estado": f[3]} for f in filas]
+        return viajes
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error SQL: {e}")
+
+class ActualizacionEstado(BaseModel):
+    id_viaje: int
+    nuevo_estado: str
+
+@app.post("/api/actualizar-estado")
+async def actualizar_estado_viaje(payload: ActualizacionEstado):
+    """
+    1. Actualiza SQLite
+    2. Emite Broadcast vía WS al Frontend
+    """
+    valid_status = ["Pendiente", "En_Transito", "Entregado"]
+    if payload.nuevo_estado not in valid_status:
+        raise HTTPException(status_code=400, detail="Estado Invalido")
+        
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE viajes_activos SET estado = ? WHERE id_viaje = ?", (payload.nuevo_estado, payload.id_viaje))
+        
+        # Obtener el número de parte para mandarlo al fronend
+        cursor.execute("SELECT noparte FROM viajes_activos WHERE id_viaje = ?", (payload.id_viaje,))
+        row = cursor.fetchone()
+        noparte = row[0] if row else ""
+        
+        conn.commit()
+        conn.close()
+        
+        # ¡Hacemos BROADCAST a todas las pantallas VW/AKSYS/DHL conectadas!
+        evento = {
+            "tipo": "actualizacion_viaje",
+            "id_viaje": payload.id_viaje,
+            "noparte": noparte,
+            "estado": payload.nuevo_estado
+        }
+        await manager.broadcast(evento)
+        
+        return {"success": True, "message": "Estado actualizado y broadcasted."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error actualizando estado: {e}")
+
+@app.post("/api/upload/demanda")
+async def upload_demanda_file(file: UploadFile = File(...)):
+    """
+    1. Recibe el archivo subido desde el frontend
+    2. Lo guarda de forma local (sobre-escribiendo)
+    3. Ejecuta el ETL pipeline de data_pipeline.py para poblar BD
+    4. Emite Broadcast de WebSocket reportando el cambio
+    """
+    try:
+        # 1. Guardar el archivo temporalmente
+        file_location = f"/Users/danielfloresrojas/Downloads/VW_R1/{file.filename}"
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        print(f"Archivo recibido y guardado en: {file_location}")
+            
+        # 2. Ejecutar la integración de datos hacia SQLite
+        rows_affected = procesar_y_guardar_demanda(file_path=file_location, db_name=DB_PATH)
+        
+        if rows_affected > 0:
+            # 3. Notificar a todo mundo a través de WebSockets
+            await manager.broadcast({"tipo": "nueva_demanda", "mensaje": "Demanda JIT actualizada."})
+            return {"success": True, "message": f"Demanda actualizada con {rows_affected} registros.", "filename": file.filename}
+        else:
+            raise HTTPException(status_code=400, detail="El archivo se guardó, pero no contenía datos procesables o falló el ETL.")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno durante la carga de demanda: {str(e)}")
+
+# === 4. ENDPOINTS PARA PANELES ESPECÍFICOS ===
+
+@app.get("/api/proveedor/ventanas")
+def get_proveedor_ventanas():
+    """ Devuelve la lista de ventanas JIT con algoritmo Heijunka de nivelación de carga y bin packing de ida """
+    try:
+        # 1. Ventanas estáticas base
+        ventanas_n25 = ["06:00", "08:20", "10:40", "13:00", "18:10", "20:30", "22:50", "01:10", "03:30"]
+        ventanas_n84 = ["15:35"]
+        
+        # 2. Preparar el diccionario de respuesta por cada ventana
+        ventanas_dict = {}
+        for h in ventanas_n25 + ventanas_n84:
+            ventanas_dict[h] = {
+                "id_viaje": len(ventanas_dict) + 1,
+                "hora_ventana": h,
+                "zona_logistica": "Nave 25" if h in ventanas_n25 else "Nave 84",
+                "ocupacion_porcentaje": 0.0,
+                "fraccion_fisica_camiones": 0.0,
+                "volumen_cajas_m3": 0.0,
+                "sobrecupo": False,
+                "estado": "Pendiente",
+                "partes": []
+            }
+            
+        # 2.5 Leer el estado dinámico y real desde base de datos SQLite
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT id_viaje, ventana_hora, estado FROM viajes_activos")
+            for row in cursor.fetchall():
+                hora = row["ventana_hora"]
+                if hora in ventanas_dict:
+                    # Sobrescribir estado e ID para que coincidan con la DB
+                    ventanas_dict[hora]["estado"] = row["estado"]
+                    ventanas_dict[hora]["id_viaje"] = row["id_viaje"]
+        except Exception:
+            pass # Si falla continua con los mocks
+        finally:
+            conn.close()
+                
+        # 3. Leer motor de cubicaje
+        plan = ejecutar_motor_cubicaje(DB_PATH)
+        detalles_pn = plan.get("Detalle_Por_Num_Parte", []) if plan else []
+        
+        TRUCK_LENGTH = 6.5
+        TRUCK_WIDTH = 2.5
+        TRUCK_HEIGHT = 2.4
+        TRUCK_MAX_WEIGHT_KG = 5000
+        TRUCK_VOLUMEN_M3 = TRUCK_LENGTH * TRUCK_WIDTH * TRUCK_HEIGHT
+        
+        piezas_hoy = 0
+        empaques_vacios = 0
+        
+        for p in detalles_pn:
+            noparte = p.get("Noparte")
+            tme = p.get("Tipo_Empaque")
+            tmg_zona = p.get("TME") # Este es el TME que diferencia la zona (17A o 2GM)
+            cajas_req = p.get("Cajas_Requeridas", 0)
+            piezas = p.get("Demanda_Piezas", 0)
+            
+            # Dimensiones
+            l = float(p.get("Largo_m", 0))
+            w = float(p.get("Ancho_m", 0))
+            h_llena = float(p.get("Alto_m", 0))
+            peso_kg = float(p.get("Peso_max_kg", 0))
+            
+            if l <= 0 or w <= 0 or h_llena <= 0:
+                continue
+                
+            # Cálculo de Bin Packing Llenas
+            cajas_base = math.floor(TRUCK_LENGTH / l) * math.floor(TRUCK_WIDTH / w)
+            cajas_alto = math.floor(TRUCK_HEIGHT / h_llena)
+            cap_max_volumen = cajas_base * cajas_alto
+            cap_max_peso = math.floor(TRUCK_MAX_WEIGHT_KG / peso_kg) if peso_kg > 0 else cap_max_volumen
+            cap_max_llenas = min(cap_max_volumen, cap_max_peso)
+            
+            if cap_max_llenas <= 0:
+                continue
+                
+            piezas_hoy += piezas
+            empaques_vacios += cajas_req
+            
+            volumen_por_caja_m3 = l * w * h_llena
+
+            # Nave 84 (TMG_ZONA = 2GM)
+            if tmg_zona == "2GM":
+                hora_asignada = ventanas_n84[0]
+                ventanas_dict[hora_asignada]["partes"].append({
+                    "noparte": noparte,
+                    "tipo_empaque": tme,
+                    "vacias_recibir": cajas_req,
+                    "llenas_enviar": cajas_req,
+                    "l_m": l,
+                    "w_m": w,
+                    "h_m": h_llena
+                })
+                # Sumar requerimiento físico de camiones y volumen
+                ventanas_dict[hora_asignada]["fraccion_fisica_camiones"] += cajas_req / cap_max_llenas
+                ventanas_dict[hora_asignada]["volumen_cajas_m3"] += cajas_req * volumen_por_caja_m3
+            else:
+                # Nave 25 Heijunka (dividir en 9 ventanas)
+                cajas_por_viaje = math.floor(cajas_req / len(ventanas_n25))
+                cajas_sobrantes = cajas_req % len(ventanas_n25)
+                
+                for idx, h in enumerate(ventanas_n25):
+                    asignadas_viaje = cajas_por_viaje + (1 if idx < cajas_sobrantes else 0)
+                    if asignadas_viaje > 0:
+                        ventanas_dict[h]["partes"].append({
+                            "noparte": noparte,
+                            "tipo_empaque": tme,
+                            "vacias_recibir": asignadas_viaje,
+                            "llenas_enviar": asignadas_viaje,
+                            "l_m": l,
+                            "w_m": w,
+                            "h_m": h_llena
+                        })
+                        ventanas_dict[h]["fraccion_fisica_camiones"] += asignadas_viaje / cap_max_llenas
+                        ventanas_dict[h]["volumen_cajas_m3"] += asignadas_viaje * volumen_por_caja_m3
+
+        # 4. Validar camiones requeridos y empaquetar lista
+        ventanas_lista = []
+        # Orden cronológico según el PDF (6am a 3am)
+        orden_ventanas = ["06:00", "08:20", "10:40", "13:00", "15:35", "18:10", "20:30", "22:50", "01:10", "03:30"]
+        for h in orden_ventanas:
+            v_data = ventanas_dict[h]
+            fraccion_fisica = v_data.pop("fraccion_fisica_camiones", 0)
+            volumen_cajas = v_data.pop("volumen_cajas_m3", 0)
+            
+            # Calcular camiones físicos requeridos basados estrictamente en el volumen puro (como el simulador)
+            camiones_req = math.ceil(volumen_cajas / TRUCK_VOLUMEN_M3) if volumen_cajas > 0 else 1
+            camiones_req = max(1, camiones_req)
+            
+            # Cálculo Real Volumétrico
+            volumen_total_camiones_usados = camiones_req * TRUCK_VOLUMEN_M3
+            porcentaje_volumetrico = (volumen_cajas / volumen_total_camiones_usados) * 100 if volumen_total_camiones_usados > 0 else 0
+            
+            v_data["sobrecupo"] = False 
+            v_data["ocupacion_porcentaje"] = round(porcentaje_volumetrico, 1)
+            ventanas_lista.append(v_data)
+
+        # Retornar KPIs globales
+        return {
+            "ventanas": ventanas_lista,
+            "kpi_piezas_hoy": piezas_hoy,
+            "kpi_empaques_vacios": empaques_vacios
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error generando ventanas: {e}")
+
+@app.get("/api/dhl/retornos-vacios")
+def get_dhl_retornos_vacios():
+    """ Devuelve el nivelado logístico de empaques vacíos devueltos al proveedor (4 camiones DHL) """
+    try:
+        plan = ejecutar_motor_cubicaje(DB_PATH)
+        if not plan:
+            return {"ventanas": []}
+
+        detalles_pn = plan.get("Detalle_Por_Num_Parte", [])
+        
+        # 4 Viajes de DHL (Ejemplo: mañana, medio día, tarde, noche)
+        ventanas_dhl = ["08:00", "12:00", "16:00", "20:00"]
+        
+        ventanas_dict = {
+            h: {
+                "id_viaje": idx + 100,
+                "hora_ventana": h,
+                "ocupacion_porcentaje": 0.0,
+                "sobrecupo": False,
+                "estado": "Pendiente",
+                "partes": []
+            } for idx, h in enumerate(ventanas_dhl)
+        }
+        
+        TRUCK_LENGTH = 6.5
+        TRUCK_WIDTH = 2.5
+        TRUCK_HEIGHT = 2.4
+        TRUCK_MAX_WEIGHT_KG = 5000
+        
+        for p in detalles_pn:
+            noparte = p.get("Noparte")
+            tme = p.get("Tipo_Empaque")
+            cajas_req = p.get("Cajas_Requeridas", 0)
+            
+            # Dimensiones
+            l = float(p.get("Largo_m", 0))
+            w = float(p.get("Ancho_m", 0))
+            h_plegada = float(p.get("Altura_plegada_m", p.get("Alto_m", 0))) # Fallback a alto normal
+            peso_kg = float(p.get("Peso_max_kg", 0))
+            
+            if l <= 0 or w <= 0 or h_plegada <= 0 or cajas_req <= 0:
+                continue
+                
+            # Cálculo de Bin Packing PLEGADAS
+            cajas_base = math.floor(TRUCK_LENGTH / l) * math.floor(TRUCK_WIDTH / w)
+            cajas_alto = math.floor(TRUCK_HEIGHT / h_plegada)
+            cap_max_volumen = cajas_base * cajas_alto
+            cap_max_peso = math.floor(TRUCK_MAX_WEIGHT_KG / peso_kg) if peso_kg > 0 else cap_max_volumen
+            cap_max_plegadas = min(cap_max_volumen, cap_max_peso)
+            
+            if cap_max_plegadas <= 0:
+                continue
+
+            # Heijunka de vacías (dividir en 4 ventanas)
+            cajas_por_viaje = math.floor(cajas_req / len(ventanas_dhl))
+            cajas_sobrantes = cajas_req % len(ventanas_dhl)
+            
+            for idx, h in enumerate(ventanas_dhl):
+                asignadas_viaje = cajas_por_viaje + (1 if idx < cajas_sobrantes else 0)
+                if asignadas_viaje > 0:
+                    ventanas_dict[h]["partes"].append({
+                        "noparte": noparte,
+                        "tipo_empaque": tme,
+                        "vacias_retornar": asignadas_viaje, # En dhl las llamamos retornar
+                        "l_m": l,
+                        "w_m": w,
+                        "h_m": h_plegada
+                    })
+                    fraccion = asignadas_viaje / cap_max_plegadas
+                    ventanas_dict[h]["ocupacion_porcentaje"] += fraccion * 100
+
+        # Validar sobrecupos
+        ventanas_lista = []
+        for h in ventanas_dhl:
+            v_data = ventanas_dict[h]
+            if v_data["ocupacion_porcentaje"] > 100:
+                v_data["sobrecupo"] = True
+            v_data["ocupacion_porcentaje"] = round(v_data["ocupacion_porcentaje"], 1)
+            ventanas_lista.append(v_data)
+
+        return {"ventanas": ventanas_lista}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error generando retornos: {e}")
+
+@app.get("/api/repartidor/viaje-actual")
+def get_repartidor_viaje_actual():
+    """ Devuelve el viaje JIT actual del chofer DHL – fuente de verdad: motor de ventanas """
+    try:
+        # 1. Leer estados reales desde SQLite (solo para sobrescribir si hay cambio manual)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT id_viaje, ventana_hora, estado FROM viajes_activos ORDER BY id_viaje ASC")
+            viajes_db = cursor.fetchall()
+        except Exception:
+            viajes_db = []
+        conn.close()
+        
+        estado_por_ventana = {row["ventana_hora"]: {"id": row["id_viaje"], "estado": row["estado"]} for row in viajes_db}
+        
+        # 2. Obtener ventanas ricas del motor (igual que panel_proveedor.html)
+        proveedor_data = get_proveedor_ventanas()
+        ventanas = proveedor_data.get("ventanas", [])
+        
+        if not ventanas:
+            return {"mensaje": "No hay ventanas configuradas para hoy."}
+        
+        total_ventanas = len(ventanas)
+        entregadas = 0
+        viaje_actual = None
+        
+        for v in ventanas:
+            hora = v["hora_ventana"]
+            info_db = estado_por_ventana.get(hora, {})
+            # Estado en DB gana si existe; si no, usa el del motor
+            estado_real = info_db.get("estado", v.get("estado", "Pendiente"))
+            
+            if estado_real == "Entregado":
+                entregadas += 1
+            elif viaje_actual is None:  # primera no-entregada = viaje activo
+                viaje_actual = {
+                    "id_viaje": info_db.get("id", v.get("id_viaje", 0)),
+                    "hora_ventana": hora,
+                    "zona_logistica": v["zona_logistica"],
+                    "ocupacion_porcentaje": v["ocupacion_porcentaje"],
+                    "estado": estado_real,
+                    "partes": v["partes"]
+                }
+        
+        if not viaje_actual:
+            return {
+                "mensaje": "!Todas las entregas del dia completadas!",
+                "progreso": {"entregadas": entregadas, "total": total_ventanas}
+            }
+        
+        # 3. Construir lista de partes para checklist del chofer
+        partes_lista = []
+        total_cajas = 0
+        tipos_empaque = set()
+        for p in viaje_actual["partes"]:
+            cajas = p.get("llenas_enviar", 0)
+            total_cajas += cajas
+            tipos_empaque.add(p.get("tipo_empaque", ""))
+            partes_lista.append({
+                "noparte": p["noparte"],
+                "tipo_empaque": p["tipo_empaque"],
+                "cajas": cajas
+            })
+        
+        return {
+            "id_viaje": viaje_actual["id_viaje"],
+            "hora_salida": viaje_actual["hora_ventana"],
+            "destino": viaje_actual["zona_logistica"],
+            "tipo_empaque": ", ".join(sorted(tipos_empaque)) if tipos_empaque else "N/A",
+            "cantidad_cajas": total_cajas,
+            "porcentaje_cubicaje": round(viaje_actual["ocupacion_porcentaje"], 1),
+            "estado": viaje_actual["estado"],
+            "partes": partes_lista,
+            "progreso": {"entregadas": entregadas, "total": total_ventanas}
+        }
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error obteniendo viaje actual: {e}")
+
+@app.get("/api/vw/dashboard-data")
+def get_vw_dashboard_data():
+    """ Construye la data consolidada para el Dashboard Analítico (Controlador VW) """
+    try:
+        # 1. Obtener la data maestra del motor de cubicaje para cálculos teóricos
+        plan = ejecutar_motor_cubicaje(DB_PATH)
+        detalles_pn = plan.get("Detalle_Por_Num_Parte", []) if plan else []
+        total_empaques_hoy = plan.get("Total_Cajas_A_Enviar", 0) if plan else 0
+        camiones_requeridos = plan.get("Total_Camiones_Flota_Requerida", 0) if plan else 0
+        
+        # 2. Obtener estado real de los viajes desde SQLite
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM viajes_activos ORDER BY ventana_hora ASC")
+        viajes_db = cursor.fetchall()
+        conn.close()
+
+        # Estructuras de respuesta principal
+        estado_por_ventana = {}
+        for row in viajes_db:
+            estado_por_ventana[row["ventana_hora"]] = row["estado"]
+            
+        proveedor_data = get_proveedor_ventanas()
+        lista_ventanas = proveedor_data.get("ventanas", [])
+        
+        viajes_vivo = []
+        alertas = []
+        grafica_jit = []
+        total_entregados = 0
+        ventanas_activas = 0
+        ocupacion_total_calculada = 0
+        import math
+        
+        for ventana in lista_ventanas:
+            h = ventana["hora_ventana"]
+            porcentaje_avg = ventana["ocupacion_porcentaje"]
+            
+            # El estado en SQLite puede predominar, de lo contrario usamos el default del mock
+            estado = estado_por_ventana.get(h, ventana["estado"])
+            
+            # Gráfica JIT
+            grafica_jit.append({
+                "hora": h,
+                "porcentaje": min(100.0, float(porcentaje_avg)),
+                "past": estado == 'Entregado'
+            })
+            
+            # KPIs Iteración
+            if len(ventana["partes"]) > 0:
+                ocupacion_total_calculada += porcentaje_avg
+                ventanas_activas += 1
+                
+            if estado == 'Entregado':
+                total_entregados += 1
+                
+            # Alertas: Retrasos Críticos
+            if estado == 'Retraso':
+                alertas.append({
+                    "nivel": "critico",
+                    "titulo": f"Retraso Crítico de Envío JIT",
+                    "desc_corta": f"AKSYS {ventana['zona_logistica']} - Ventana {h}",
+                    "accion": "Rastrear",
+                    "tiempo": "Justo ahora"
+                })
+                
+            # Alerta de ocupación
+            if porcentaje_avg < 85 and len(ventana["partes"]) > 0 and estado != 'Entregado':
+                alertas.append({
+                    "nivel": "advertencia",
+                    "titulo": f"Ocupación Logística Subóptima ({int(porcentaje_avg)}%)",
+                    "desc_corta": f"Ventana de las {h} lleva camiones ineficientes. Riesgo TCO.",
+                    "accion": "Consolidar",
+                    "tiempo": "Hace 2 min"
+                })
+
+            # Añadir filas para la tabla en vivo
+            for p in ventana["partes"]:
+                viajes_vivo.append({
+                    "hora": h,
+                    "proveedor": f"AKSYS {ventana['zona_logistica']}",
+                    "noparte": p["noparte"],
+                    "empaques": p["llenas_enviar"],
+                    "estado": estado,
+                    "zona_tme": f"{ventana['zona_logistica']} (TME: {p['tipo_empaque']})"
+                })
+
+        # 5. KPIs Finales
+        ocupacion_dhl_kpi = (ocupacion_total_calculada / ventanas_activas) if ventanas_activas > 0 else 0
+        cumplimiento_global_kpi = (total_entregados / len(lista_ventanas) * 100) if lista_ventanas else 0
+        
+        # Calcular el total de piezas sumando la demanda
+        total_piezas_hoy = sum(int(x.get("Demanda_Piezas", 0)) for x in detalles_pn)
+        
+        return {
+            "kpis": {
+                "total_empaques": total_empaques_hoy,
+                "total_piezas": total_piezas_hoy,
+                "ocupacion_dhl": round(ocupacion_dhl_kpi, 1),
+                "cumplimiento_global": round(cumplimiento_global_kpi, 1)
+            },
+            "alertas": alertas,
+            "grafica_jit": grafica_jit,
+            "viajes_vivo": viajes_vivo
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error cargando dashboard datos: {e}")
