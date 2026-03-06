@@ -233,19 +233,8 @@
                 console.log("Nueva demanda detectada. Refrescando datos del panel...");
                 await cargarDatosProveedor();
             } else if (data.tipo === "actualizacion_viaje" || (data.id_viaje && data.estado)) {
-                // Actualizar estado específico si corresponde a un viaje visible
-                const idViaje = data.id_viaje;
-                const estadoNuevo = data.estado || data.nuevo_estado;
-
-                const spanEstado = document.getElementById('estado-viaje-' + idViaje);
-                const btnEnvio = document.getElementById('btn-enviar-viaje-' + idViaje);
-
-                if (spanEstado && btnEnvio && estadoNuevo === "En_Transito") {
-                    spanEstado.innerHTML = `<span class="size-2 rounded-full bg-info animate-pulse"></span> En Tránsito`;
-                    btnEnvio.disabled = true;
-                    btnEnvio.classList.replace("bg-info", "bg-slate-300");
-                    btnEnvio.innerHTML = `<span class="material-symbols-outlined text-sm">done</span> Enviado`;
-                }
+                console.log("Detectada actualización de viaje. Refrescando datos...");
+                await cargarDatosProveedor();
             }
         };
 

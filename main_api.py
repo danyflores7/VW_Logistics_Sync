@@ -592,7 +592,7 @@ def get_repartidor_viaje_actual():
                     "ocupacion_porcentaje": v["ocupacion_porcentaje"],
                     "estado": estado_real,
                     "partes": v.get("partes", []),
-                    "cantidad_cajas": sum(p["vacias_retornar"] for p in v.get("partes", [])),
+                    "cantidad_cajas": sum(p.get("llenas_enviar", 0) for p in v.get("partes", [])),
                     "porcentaje_cubicaje": v["ocupacion_porcentaje"],
                     "hora_salida": hora,
                     "destino": v["zona_logistica"]

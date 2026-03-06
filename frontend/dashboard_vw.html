@@ -562,8 +562,12 @@
                                     let anim = '';
                                     let opacityClass = '';
 
-                                    if (viaje.estado === 'En_Transito') {
-                                        textColor = 'text-blue-600'; bgColor = 'bg-blue-600'; label = 'En Tránsito'; anim = 'animate-pulse';
+                                    if (viaje.estado === 'En_Transito' || viaje.estado === 'Transito_Hacia_VW') {
+                                        textColor = 'text-blue-600'; bgColor = 'bg-blue-600'; label = 'Regresando a VW'; anim = 'animate-pulse';
+                                    } else if (viaje.estado === 'En_Proveedor') {
+                                        textColor = 'text-purple-600'; bgColor = 'bg-purple-600'; label = 'Cargando en AKSYS'; anim = 'animate-pulse';
+                                    } else if (viaje.estado === 'Transito_Hacia_Prov') {
+                                        textColor = 'text-amber-500'; bgColor = 'bg-amber-500'; label = 'Enviando Vacíos'; anim = 'animate-pulse';
                                     } else if (viaje.estado === 'Completado' || viaje.estado === 'Entregado') {
                                         textColor = 'text-green-600'; bgColor = 'bg-green-600'; label = 'Completado'; anim = '';
                                     } else if (viaje.estado === 'Retraso') {
