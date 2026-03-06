@@ -234,20 +234,10 @@
 
         </main>
 
-        <!-- ── FOOTER STICKY ── -->
         <footer
             class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
-            <div class="max-w-md mx-auto space-y-3">
-                <button id="btn-entregar-viaje"
-                    class="w-full bg-primary text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-all uppercase tracking-wide">
-                    <span class="material-symbols-outlined">hourglass_empty</span>
-                    Esperando confirmación AKSYS…
-                </button>
-                <button id="btn-reportar"
-                    class="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <span class="material-symbols-outlined text-red-500 text-lg">warning</span>
-                    Reportar Incidencia
-                </button>
+            <div id="footer-actions" class="max-w-md mx-auto space-y-3">
+                <!-- Botones Dinámicos -->
             </div>
         </footer>
 
@@ -450,14 +440,20 @@
 
                 const estadoEl = document.getElementById('estado-texto');
                 const estadoBadge = document.getElementById('estado-badge');
-                if (data.estado === 'Entregado') {
-                    estadoEl.textContent = '✓ OK';
+                if (data.estado === 'Completado' || data.estado === 'Entregado') {
+                    estadoEl.textContent = '✓ FIN';
                     estadoBadge.style.background = 'rgba(34,197,94,0.2)';
-                } else if (data.estado === 'En_Transito') {
-                    estadoEl.textContent = '🚛 En ruta';
+                } else if (data.estado === 'Transito_Hacia_VW' || data.estado === 'En_Transito') {
+                    estadoEl.textContent = '🚛 Regresando VW';
                     estadoBadge.style.background = 'rgba(59,130,246,0.2)';
+                } else if (data.estado === 'Transito_Hacia_Prov') {
+                    estadoEl.textContent = '🚛 Hacia AKSYS';
+                    estadoBadge.style.background = 'rgba(234,179,8,0.2)';
+                } else if (data.estado === 'En_Proveedor') {
+                    estadoEl.textContent = '🏭 En AKSYS';
+                    estadoBadge.style.background = 'rgba(168,85,247,0.2)';
                 } else {
-                    estadoEl.textContent = '⏳ Pendiente';
+                    estadoEl.textContent = '⏳ Pendiente VW';
                     estadoBadge.style.background = 'rgba(255,255,255,0.1)';
                 }
 
@@ -491,33 +487,60 @@
         }
 
         function actualizarBoton(data) {
-            const btn = document.getElementById('btn-entregar-viaje');
-            btn.onclick = () => confirmarEntrega(data.id_viaje);
+            const container = document.getElementById('footer-actions');
+            let html = '';
 
-            if (data.estado === 'En_Transito') {
-                btn.disabled = false;
-                btn.className = "w-full bg-primary text-white py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-all uppercase tracking-wide";
-                btn.innerHTML = `Confirmar Entrega y Liberar Camión <span class="material-symbols-outlined">check_circle</span>`;
+            if (data.estado === 'Transito_Hacia_VW' || data.estado === 'En_Transito') {
+                html = `
+                    <div class="bg-green-50 p-3 rounded-xl border border-green-200">
+                        <label class="block text-xs font-bold text-green-800 uppercase mb-2">Paso 4: Recepción VW (Fin Ciclo)</label>
+                        <div class="flex gap-2 mb-2">
+                            <input type="number" id="input-cantidad" placeholder="Cajas Llenas recibidas..." class="flex-1 rounded-lg border-green-300 text-sm focus:ring-green-500" value="${data.cantidad_cajas}">
+                        </div>
+                        <button onclick="confirmarEstado(${data.id_viaje}, 'Completado')" class="w-full bg-green-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
+                            <span class="material-symbols-outlined">inventory_2</span> Validar Recepción de Cajas LLENAS
+                        </button>
+                    </div>
+                `;
             } else if (data.estado === 'Pendiente') {
-                btn.disabled = true;
-                btn.className = "w-full bg-slate-300 text-slate-500 py-4 rounded-xl font-black text-base flex items-center justify-center gap-3 uppercase tracking-wide cursor-not-allowed";
-                btn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> Esperando autorización AKSYS…`;
+                html = `
+                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                        <label class="block text-xs font-bold text-blue-800 uppercase mb-2">Paso 1: Salida de VW (Inicio Ciclo)</label>
+                        <div class="flex gap-2 mb-2">
+                            <input type="number" id="input-cantidad" placeholder="Cajas Vacías enviadas..." class="flex-1 rounded-lg border-blue-300 text-sm focus:ring-blue-500" value="${data.cantidad_cajas}">
+                        </div>
+                        <button onclick="confirmarEstado(${data.id_viaje}, 'Transito_Hacia_Prov')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
+                            <span class="material-symbols-outlined">local_shipping</span> Confirmar Salida de Cajas VACÍAS
+                        </button>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <button disabled class="w-full bg-slate-200 text-slate-500 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide cursor-not-allowed">
+                        <span class="material-symbols-outlined">hourglass_empty</span> Esperando validación en Proveedor...
+                    </button>
+                `;
             }
+
+            container.innerHTML = html + `
+                <button id="btn-reportar" class="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-red-500 text-lg">warning</span> Reportar Incidencia
+                </button>
+            `;
         }
 
         // ════════════════════════════════════════════════════
-        //  CONFIRMAR ENTREGA
+        //  CONFIRMAR ESTADO CON CANTIDAD
         // ════════════════════════════════════════════════════
-        async function confirmarEntrega(idViaje) {
+        async function confirmarEstado(idViaje, nuevoEstado) {
             try {
-                const btn = document.getElementById('btn-entregar-viaje');
-                btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">autorenew</span> Registrando entrega…`;
-                btn.disabled = true;
+                const inputVal = document.getElementById('input-cantidad').value;
+                const cantidad = parseInt(inputVal) || 0;
 
                 const req = await fetch('/api/actualizar-estado', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_viaje: idViaje, nuevo_estado: "Entregado" })
+                    body: JSON.stringify({ id_viaje: idViaje, nuevo_estado: nuevoEstado, cantidad: cantidad })
                 });
 
                 if (!req.ok) throw new Error("Fallo en API al confirmar entrega");

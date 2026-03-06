@@ -663,6 +663,46 @@
                 if (data.tipo === 'actualizacion_viaje') {
                     console.log(`¡Viaje actualizdo a ${data.estado}! Recargando tabla...`);
                     await cargarDatosDashboard();
+
+                    // VALIDACIÓN CRUZADA EN TIEMPO REAL
+                    if (data.viaje) {
+                        let mensajeError = "";
+                        let diferencia = 0;
+                        if (data.estado === "En_Proveedor" && data.viaje.cant_vacias_enviadas !== data.viaje.cant_vacias_recibidas) {
+                            diferencia = Math.abs(data.viaje.cant_vacias_enviadas - data.viaje.cant_vacias_recibidas);
+                            mensajeError = `VW envió ${data.viaje.cant_vacias_enviadas} VACÍAS pero AKSYS reporta haber recibido ${data.viaje.cant_vacias_recibidas}.`;
+                        } else if (data.estado === "Completado" && data.viaje.cant_llenas_enviadas !== data.viaje.cant_llenas_recibidas) {
+                            diferencia = Math.abs(data.viaje.cant_llenas_enviadas - data.viaje.cant_llenas_recibidas);
+                            mensajeError = `AKSYS envió ${data.viaje.cant_llenas_enviadas} LLENAS pero VW reporta haber recibido ${data.viaje.cant_llenas_recibidas}.`;
+                        }
+
+                        if (mensajeError) {
+                            const htmlAlerta = `
+                            <div class="p-4 bg-red-50 hover:bg-red-100 transition-colors border-b border-red-100">
+                                <div class="flex gap-3">
+                                    <div class="size-8 rounded bg-red-200 flex items-center justify-center shrink-0">
+                                        <span class="material-symbols-outlined text-red-700 text-lg">error</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-black text-red-800">¡ALERTA DE INVENTARIO! Desfase (Δ ${diferencia})</p>
+                                        <p class="text-xs text-red-700 font-medium mb-2">Viaje #${data.id_viaje} - ${mensajeError}</p>
+                                        <div class="flex items-center gap-2">
+                                            <button class="text-[10px] font-bold py-1 px-3 bg-red-700 hover:bg-red-800 text-white rounded shadow-sm">Protocolo de Búsqueda</button>
+                                            <button class="text-[10px] font-bold py-1 px-3 border border-red-300 text-red-600 rounded hover:bg-red-200">Omitir</button>
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] text-red-500 font-bold whitespace-nowrap">Hace 1s</span>
+                                </div>
+                            </div>`;
+                            const contAlertas = document.getElementById('alertas-container');
+                            if (contAlertas) {
+                                if (contAlertas.innerHTML.includes('Todo opera con normalidad')) {
+                                    contAlertas.innerHTML = '';
+                                }
+                                contAlertas.insertAdjacentHTML('afterbegin', htmlAlerta);
+                            }
+                        }
+                    }
                 }
             };
 
@@ -680,7 +720,7 @@
 
                 const btn = document.getElementById('btn-upload');
                 const originalText = btn.innerHTML;
-                btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">autorenew</span> Subiendo...`;
+                btn.innerHTML = `< span class= "material-symbols-outlined text-sm animate-spin" > autorenew</span > Subiendo...`;
                 btn.disabled = true;
 
                 try {
@@ -716,11 +756,11 @@
                     const data = await response.json();
 
                     if (!data.ventanas || data.ventanas.length === 0) {
-                        container.innerHTML = `<p class="text-slate-500 text-sm">No hay retornos programados o demanada cargada.</p>`;
+                        container.innerHTML = `< p class= "text-slate-500 text-sm" > No hay retornos programados o demanada cargada.</p > `;
                         return;
                     }
 
-                    let contentHtml = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">`;
+                    let contentHtml = `< div class= "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" > `;
 
                     data.ventanas.forEach(ventana => {
                         let totalEmpaques = 0;
@@ -737,12 +777,12 @@
                         });
 
                         let partesHTML = Object.values(groupedTME)
-                            .map(p => `<div class="flex justify-between items-center bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-100 dark:border-slate-800">
+                            .map(p => `< div class= "flex justify-between items-center bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-100 dark:border-slate-800" >
                                 <div>
                                     <span class="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Empaque TME: ${p.tipo_empaque}</span>
                                 </div>
                                 <span class="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded font-bold text-[11px]">x${p.vacias_retornar}</span>
-                            </div>`)
+                            </div > `)
                             .join('');
 
                         if (!partesHTML) partesHTML = '<p class="text-center italic text-slate-400 py-2 text-xs">Sin empaques a retornar.</p>';
@@ -760,7 +800,7 @@
                         if (oc > 100) barColor = 'bg-red-500';
 
                         contentHtml += `
-                        <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 flex flex-col h-full">
+                        < div class= "bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 flex flex-col h-full" >
                             <div class="flex justify-between items-center mb-3">
                                 <h5 class="font-bold text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> ${ventana.hora_ventana}</h5>
                                 <button onclick="window.open3DModal('${partesJsonEncoded}')" class="text-xs bg-primary hover:bg-primary/90 text-white px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-colors">
@@ -787,15 +827,15 @@
                                     ${partesHTML}
                                 </div>
                             </div>
-                        </div>`;
+                        </div > `;
                     });
 
-                    contentHtml += `</div>`;
+                    contentHtml += `</div > `;
                     container.innerHTML = contentHtml;
 
                 } catch (err) {
                     console.error("Error retornos DHL", err);
-                    container.innerHTML = `<p class="text-red-500 text-sm">Error al cargar la carga nivelada de DHL: ${err.message}</p>`;
+                    container.innerHTML = `< p class= "text-red-500 text-sm" > Error al cargar la carga nivelada de DHL: ${err.message}</p >`;
                 }
             }
 

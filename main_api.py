@@ -4,6 +4,7 @@ import json
 import math
 from contextlib import asynccontextmanager
 import shutil
+from datetime import datetime
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,7 +59,6 @@ def init_db_mock_viajes():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        # Eliminar si existe para simular "Inicio de Día Fresco"
         cursor.execute("DROP TABLE IF EXISTS viajes_activos")
         
         cursor.execute("""
@@ -66,7 +66,16 @@ def init_db_mock_viajes():
                 id_viaje INTEGER PRIMARY KEY AUTOINCREMENT,
                 noparte TEXT,
                 ventana_hora TEXT,
-                estado TEXT
+                estado TEXT,
+                real_salida_vw TEXT,
+                real_llegada_prov TEXT,
+                real_salida_prov TEXT,
+                real_llegada_vw TEXT,
+                cant_vacias_enviadas INTEGER DEFAULT 0,
+                cant_vacias_recibidas INTEGER DEFAULT 0,
+                cant_llenas_enviadas INTEGER DEFAULT 0,
+                cant_llenas_recibidas INTEGER DEFAULT 0,
+                minutos_retraso INTEGER DEFAULT 0
             )
         """)
         
@@ -78,8 +87,8 @@ def init_db_mock_viajes():
             for i, p in enumerate(partes):
                 noparte = p["Noparte"]
                 hora = ventanas_aksys[i % len(ventanas_aksys)]
-                # Solo para simular, el primero lo ponemos Entregado, los demás Pendiente
-                estado = "Entregado" if i == 0 else "Pendiente"
+                # Por default iniciamos todos como Pendiente
+                estado = "Pendiente"
                 mock_data.append((noparte, hora, estado))
             
             cursor.executemany("INSERT INTO viajes_activos (noparte, ventana_hora, estado) VALUES (?, ?, ?)", mock_data)
@@ -160,15 +169,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/api/viajes-activos")
 def read_viajes_activos():
-    """ Devuelve el listado actual SQL de los viajes """
+    """ Devuelve el listado actual SQL de los viajes con todo el historico de estado """
     try:
         conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM viajes_activos")
         filas = cursor.fetchall()
         conn.close()
         
-        viajes = [{"id_viaje": f[0], "noparte": f[1], "ventana_hora": f[2], "estado": f[3]} for f in filas]
+        viajes = [dict(f) for f in filas]
         return viajes
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error SQL: {e}")
@@ -176,36 +186,77 @@ def read_viajes_activos():
 class ActualizacionEstado(BaseModel):
     id_viaje: int
     nuevo_estado: str
+    cantidad: int = 0
 
 @app.post("/api/actualizar-estado")
 async def actualizar_estado_viaje(payload: ActualizacionEstado):
     """
-    1. Actualiza SQLite
+    1. Actualiza SQLite (con columnas de cantidades y timestamps)
     2. Emite Broadcast vía WS al Frontend
     """
-    valid_status = ["Pendiente", "En_Transito", "Entregado"]
-    if payload.nuevo_estado not in valid_status:
+    valid_status = ["Pendiente", "Transito_Hacia_Prov", "En_Proveedor", "Transito_Hacia_VW", "Completado"]
+    if payload.nuevo_estado not in valid_status and payload.nuevo_estado not in ["En_Transito", "Entregado"]: # Soporte legado
         raise HTTPException(status_code=400, detail="Estado Invalido")
         
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("UPDATE viajes_activos SET estado = ? WHERE id_viaje = ?", (payload.nuevo_estado, payload.id_viaje))
         
-        # Obtener el número de parte para mandarlo al fronend
-        cursor.execute("SELECT noparte FROM viajes_activos WHERE id_viaje = ?", (payload.id_viaje,))
-        row = cursor.fetchone()
-        noparte = row[0] if row else ""
+        now_str = datetime.now().isoformat()
+        
+        updates = ["estado = ?"]
+        params = [payload.nuevo_estado]
+        
+        if payload.nuevo_estado == "Transito_Hacia_Prov":
+            updates.extend(["real_salida_vw = ?", "cant_vacias_enviadas = ?"])
+            params.extend([now_str, payload.cantidad])
+        elif payload.nuevo_estado == "En_Proveedor":
+            updates.extend(["real_llegada_prov = ?", "cant_vacias_recibidas = ?"])
+            params.extend([now_str, payload.cantidad])
+        elif payload.nuevo_estado == "Transito_Hacia_VW":
+            updates.extend(["real_salida_prov = ?", "cant_llenas_enviadas = ?"])
+            params.extend([now_str, payload.cantidad])
+        elif payload.nuevo_estado == "Completado" or payload.nuevo_estado == "Entregado":
+            payload.nuevo_estado = "Completado" # Forzar nombre nuevo
+            cursor.execute("SELECT ventana_hora FROM viajes_activos WHERE id_viaje = ?", (payload.id_viaje,))
+            row_vh = cursor.fetchone()
+            retraso = 0
+            if row_vh:
+                vh = row_vh[0] # Ej: "10:10"
+                ahora = datetime.now()
+                try:
+                    hora_planeada = ahora.replace(hour=int(vh.split(":")[0]), minute=int(vh.split(":")[1]), second=0, microsecond=0)
+                    diff = (ahora - hora_planeada).total_seconds() / 60
+                    retraso = int(diff)
+                except:
+                    retraso = 0
+            
+            updates.extend(["real_llegada_vw = ?", "cant_llenas_recibidas = ?", "minutos_retraso = ?"])
+            params.extend([now_str, payload.cantidad, retraso])
+            
+        params.append(payload.id_viaje)
+        query = f"UPDATE viajes_activos SET {', '.join(updates)} WHERE id_viaje = ?"
+        
+        cursor.execute(query, params)
+        
+        # Recuperar estado completo para enviar por WS
+        conn.row_factory = sqlite3.Row
+        c2 = conn.cursor()
+        c2.execute("SELECT * FROM viajes_activos WHERE id_viaje = ?", (payload.id_viaje,))
+        row_updated = c2.fetchone()
         
         conn.commit()
         conn.close()
+        
+        dict_row = dict(row_updated) if row_updated else {}
         
         # ¡Hacemos BROADCAST a todas las pantallas VW/AKSYS/DHL conectadas!
         evento = {
             "tipo": "actualizacion_viaje",
             "id_viaje": payload.id_viaje,
-            "noparte": noparte,
-            "estado": payload.nuevo_estado
+            "noparte": dict_row.get("noparte", ""),
+            "estado": payload.nuevo_estado,
+            "viaje": dict_row
         }
         await manager.broadcast(evento)
         

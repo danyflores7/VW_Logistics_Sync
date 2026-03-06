@@ -269,28 +269,54 @@
                     let estadoHtml = '';
                     let actionHtml = '';
 
-                    if (v.estado === "Pendiente") {
+                    if (v.estado === "Transito_Hacia_Prov") {
+                        // Paso 1: Recibir vacías
                         estadoHtml = `<span id="estado-viaje-${v.id_viaje}" class="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold text-sm">
-                                        <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span> Pendiente
+                                        <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span> Recibiendo Vacíos
                                       </span>`;
-                        actionHtml = `<button id="btn-enviar-viaje-${v.id_viaje}" onclick="confirmarEnvio(${v.id_viaje})"
-                                        class="px-4 py-2 bg-info hover:bg-info/90 text-white text-sm font-bold rounded-lg shadow-sm transition-all flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-sm">local_shipping</span> Confirmar envío
-                                      </button>`;
-                    } else if (v.estado === "En_Transito") {
+                        actionHtml = `
+                            <div class="flex flex-col gap-1 items-end">
+                                <label class="text-[9px] uppercase font-bold text-slate-400">Paso 2: Validar Llegada</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="input-llegada-${v.id_viaje}" placeholder="Vacíos..." class="w-20 rounded border-slate-300 text-xs h-8" value="${v.partes && v.partes.length ? v.partes[0].vacias_recibir : 0}">
+                                    <button id="btn-validar-${v.id_viaje}" onclick="confirmarPasoProv(${v.id_viaje}, 'En_Proveedor')" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded shadow-sm flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[14px]">inventory_2</span> Recibir Vacíos
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else if (v.estado === "En_Proveedor") {
+                        // Paso 2: Enviar llenas
+                        estadoHtml = `<span id="estado-viaje-${v.id_viaje}" class="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold text-sm">
+                                        <span class="size-2 rounded-full bg-purple-500 animate-pulse"></span> Cargando Llenas
+                                      </span>`;
+                        actionHtml = `
+                            <div class="flex flex-col gap-1 items-end">
+                                <label class="text-[9px] uppercase font-bold text-purple-400">Paso 3: Enviar Llenas</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="input-salida-${v.id_viaje}" placeholder="Llenas..." class="w-20 rounded border-purple-300 text-xs h-8" value="${v.partes && v.partes.length ? v.partes[0].llenas_enviar : 0}">
+                                    <button id="btn-enviar-${v.id_viaje}" onclick="confirmarPasoProv(${v.id_viaje}, 'Transito_Hacia_VW')" class="px-3 py-1.5 bg-info hover:bg-info/90 text-white text-xs font-bold rounded shadow-sm flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[14px]">local_shipping</span> Enviar Llenas
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else if (v.estado === "Transito_Hacia_VW" || v.estado === "En_Transito") {
                         estadoHtml = `<span id="estado-viaje-${v.id_viaje}" class="inline-flex items-center gap-1 text-info font-bold text-sm">
-                                        <span class="size-2 rounded-full bg-info animate-pulse"></span> En Tránsito
+                                        <span class="size-2 rounded-full bg-info"></span> Hacia VW
                                       </span>`;
-                        actionHtml = `<button id="btn-enviar-viaje-${v.id_viaje}" disabled class="px-4 py-2 bg-slate-300 dark:bg-slate-700 text-white text-sm font-bold rounded-lg transition-all flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-sm">done</span> Enviado
-                                      </button>`;
-                    } else {
+                        actionHtml = `<button disabled class="px-4 py-1.5 bg-slate-300 dark:bg-slate-700 text-white text-xs font-bold rounded flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">done</span> Rumbo a VW</button>`;
+                    } else if (v.estado === "Completado" || v.estado === "Entregado") {
                         estadoHtml = `<span class="inline-flex items-center gap-1 text-success font-bold text-sm">
-                                        <span class="size-2 rounded-full bg-success"></span> Entregado
+                                        <span class="size-2 rounded-full bg-success"></span> Completado
                                       </span>`;
-                        actionHtml = `<button disabled class="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 text-sm font-bold rounded-lg cursor-not-allowed">
-                                        Completado
-                                      </button>`;
+                        actionHtml = `<button disabled class="px-4 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-400 text-xs font-bold rounded cursor-not-allowed">Ciclo Cerrado</button>`;
+                    } else {
+                        // Pendiente o cualquier otro
+                        estadoHtml = `<span class="inline-flex items-center gap-1 text-slate-500 font-bold text-sm">
+                                        <span class="size-2 rounded-full bg-slate-400"></span> Pendiente VW
+                                      </span>`;
+                        actionHtml = `<button disabled class="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 text-xs font-bold rounded cursor-not-allowed border border-slate-200">Esperando salida VW</button>`;
                     }
 
                     actionHtml += `
@@ -470,28 +496,22 @@
             }
         }
 
-        async function confirmarEnvio(idViaje) {
+        async function confirmarPasoProv(idViaje, nuevoEstado) {
             try {
-                const btn = document.getElementById('btn-enviar-viaje-' + idViaje);
-                btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin">autorenew</span> Procesando...`;
+                let inputId = nuevoEstado === 'En_Proveedor' ? `input-llegada-${idViaje}` : `input-salida-${idViaje}`;
+                let elInput = document.getElementById(inputId);
+                let cantidad = elInput ? parseInt(elInput.value) || 0 : 0;
 
                 const req = await fetch('/api/actualizar-estado', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_viaje: idViaje, nuevo_estado: "En_Transito" })
+                    body: JSON.stringify({ id_viaje: idViaje, nuevo_estado: nuevoEstado, cantidad: cantidad })
                 });
 
-                if (!req.ok) throw new Error("Fallo en API");
-
-                document.getElementById('estado-viaje-' + idViaje).innerHTML = `<span class="size-2 rounded-full bg-info"></span> En Tránsito`;
-                btn.classList.replace("bg-info", "bg-slate-300");
-                btn.innerHTML = `<span class="material-symbols-outlined text-sm">done</span> Enviado`;
-                btn.disabled = true;
+                if (!req.ok) throw new Error("Fallo en API actualizar estado");
 
             } catch (err) {
-                alert("Error al actualizar: " + err);
-                const btn = document.getElementById('btn-enviar-viaje-' + idViaje);
-                btn.innerHTML = `<span class="material-symbols-outlined text-sm">local_shipping</span> Reintentar`;
+                alert("Error al confirmar paso: " + err);
             }
         }
 
