@@ -740,8 +740,12 @@
                     const result = await response.json();
                     if (response.ok) {
                         console.log("Subida exitosa:", result);
-                        // La recarga se hará mágica por el WebSocket "nueva_demanda"
                         fileInput.value = ""; // Limpiar input
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        alert("¡Demanda subida y procesada con éxito!");
+                        // Refrescar manualmente en caso de que WS falle por el túnel
+                        await cargarDatosDashboard();
                     } else {
                         alert("Error del servidor: " + result.detail);
                         btn.innerHTML = originalText;
