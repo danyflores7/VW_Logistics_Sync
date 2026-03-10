@@ -6,6 +6,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Vista del Repartidor – VW / DHL</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
@@ -359,24 +360,24 @@
                 const cantEsperada = empaques[tme];
                 return `
                 <div class="task-item bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-3 group transition-all">
-                    <div class="flex items-center justify-between \${showInputs ? 'mb-3' : ''}">
+                    <div class="flex items-center justify-between ${showInputs ? 'mb-3' : ''}">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-outlined text-primary text-xl">inventory_2</span>
-                            <h4 class="font-bold text-slate-800 tracking-tight">Empaque TME: \${tme}</h4>
+                            <h4 class="font-bold text-slate-800 tracking-tight">Empaque TME: ${tme}</h4>
                         </div>
                         <span class="bg-primary/10 text-primary font-bold px-3 py-1 rounded text-sm text-center">
-                            x\${cantEsperada} \${showInputs ? '<br><span class="text-[9px] uppercase tracking-widest text-primary/70 font-black">Esperadas</span>' : ''}
+                            x${cantEsperada} ${showInputs ? '<br><span class="text-[9px] uppercase tracking-widest text-primary/70 font-black">Esperadas</span>' : ''}
                         </span>
                     </div>
-                    \${showInputs ? \`
+                    ${showInputs ? `
                     <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
                         <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-wider">A validar (Mismo TME)</label>
                         <div class="flex items-center justify-between gap-3">
-                            <button onclick="adjustTMECount('\${tme}', -1)" class="w-10 h-10 rounded-lg bg-white border border-slate-300 shadow-sm flex items-center justify-center font-bold text-slate-500 active:bg-slate-100 active:scale-95 transition-all text-xl">-</button>
-                            <input type="number" id="input-tme-\${tme}" value="\${cantEsperada}" class="tme-input flex-1 text-center font-black text-xl bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary py-2 h-10 shadow-inner" min="0">
-                            <button onclick="adjustTMECount('\${tme}', 1)" class="w-10 h-10 rounded-lg bg-primary shadow flex items-center justify-center font-bold text-white active:bg-primary/90 active:scale-95 transition-all text-xl">+</button>
+                            <button onclick="adjustTMECount('${tme}', -1)" class="w-10 h-10 rounded-lg bg-white border border-slate-300 shadow-sm flex items-center justify-center font-bold text-slate-500 active:bg-slate-100 active:scale-95 transition-all text-xl">-</button>
+                            <input type="number" id="input-tme-${tme}" value="${cantEsperada}" class="tme-input flex-1 text-center font-black text-xl bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary py-2 h-10 shadow-inner" min="0">
+                            <button onclick="adjustTMECount('${tme}', 1)" class="w-10 h-10 rounded-lg bg-primary shadow flex items-center justify-center font-bold text-white active:bg-primary/90 active:scale-95 transition-all text-xl">+</button>
                         </div>
-                    </div>\` : ''}
+                    </div>` : ''}
                 </div>
                 `;
             }).join('');
@@ -538,11 +539,15 @@
         function validarYConfirmar(idViaje, nuevoEstado, cantidadEsperada) {
             // Verificar inputs TME agregados 
             let cantidadReal = 0;
+            const tme_dict = {};
             const tmeInputs = document.querySelectorAll('.tme-input');
 
             if (tmeInputs.length > 0) {
                 tmeInputs.forEach(input => {
-                    cantidadReal += parseInt(input.value) || 0;
+                    const tme = input.id.replace('input-tme-', '');
+                    const val = parseInt(input.value) || 0;
+                    tme_dict[tme] = val;
+                    cantidadReal += val;
                 });
             } else {
                 cantidadReal = cantidadEsperada;
@@ -550,19 +555,41 @@
 
             // Validar faltantes lógicos -> KPI
             if (cantidadReal < cantidadEsperada) {
-                if (!confirm(`🚨 CANTIDAD INCOMPLETA 🚨\n\nSe esperaban ${cantidadEsperada} empaques en total.\nEstás validando el movimiento de solo ${cantidadReal} empaques.\n\n¿Quieres confirmar esta merma y continuar con el viaje bajo observación de KPI?`)) {
-                    return;
-                }
+                Swal.fire({
+                    title: '🚨 CANTIDAD INCOMPLETA 🚨',
+                    html: `Se esperaban <strong>${cantidadEsperada}</strong> empaques en total.<br>Estás validando el movimiento de solo <strong class="text-red-600 font-black">${cantidadReal}</strong> empaques.<br><br>¿Quieres confirmar esta merma y continuar con el viaje bajo observación de KPI?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#475569',
+                    confirmButtonText: 'Sí, confirmar merma',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        confirmarEstado(idViaje, nuevoEstado, cantidadReal, tme_dict);
+                    }
+                });
             } else if (cantidadReal > cantidadEsperada) {
-                if (!confirm(`🚛 SOBRECUPO: Estás validando más empaques totales (${cantidadReal}) de los estipulados (${cantidadEsperada}). ¿Confirmar excepción?`)) {
-                    return;
-                }
+                Swal.fire({
+                    title: '🚛 SOBRECUPO DETECTADO',
+                    html: `Estás validando más empaques totales (<strong class="text-blue-600 font-black">${cantidadReal}</strong>) de los estipulados (<strong>${cantidadEsperada}</strong>).<br><br>¿Confirmar esta excepción?`,
+                    icon: 'info',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3b82f6',
+                    cancelButtonColor: '#475569',
+                    confirmButtonText: 'Sí, confirmar sobrecupo',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        confirmarEstado(idViaje, nuevoEstado, cantidadReal, tme_dict);
+                    }
+                });
+            } else {
+                confirmarEstado(idViaje, nuevoEstado, cantidadReal, tme_dict);
             }
-
-            confirmarEstado(idViaje, nuevoEstado, cantidadReal);
         }
 
-        async function confirmarEstado(idViaje, nuevoEstado, cantidadConfirmada) {
+        async function confirmarEstado(idViaje, nuevoEstado, cantidadConfirmada, tme_dict) {
             try {
                 const cantidad = cantidadConfirmada !== undefined ? cantidadConfirmada : 0;
                 const btn = document.getElementById('btn-confirmar-estado');
@@ -572,10 +599,15 @@
                     btn.disabled = true;
                 }
 
+                const payload = { id_viaje: idViaje, nuevo_estado: nuevoEstado, cantidad: cantidad };
+                if (tme_dict && Object.keys(tme_dict).length > 0) {
+                    payload.tme_dict = tme_dict;
+                }
+
                 const req = await fetch('/api/actualizar-estado', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_viaje: idViaje, nuevo_estado: nuevoEstado, cantidad: cantidad })
+                    body: JSON.stringify(payload)
                 });
 
                 if (!req.ok) throw new Error("Fallo en API al confirmar entrega");
@@ -591,7 +623,12 @@
                 }, 1200);
 
             } catch (err) {
-                alert("Error al registrar entrega: " + err.message);
+                Swal.fire({
+                    title: 'Error de Conexión',
+                    text: "Error al registrar entrega: " + err.message,
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
                 const btn = document.getElementById('btn-confirmar-estado');
                 if (btn) {
                     btn.innerHTML = `Reintentar`;
@@ -614,10 +651,24 @@
         function enviarIncidencia() {
             const tipo = document.getElementById('tipo-incidencia').value;
             const nota = document.getElementById('nota-incidencia').value;
-            if (!tipo) { alert('Selecciona el tipo de incidencia'); return; }
+            if (!tipo) {
+                Swal.fire({
+                    title: 'Atención',
+                    text: 'Selecciona el tipo de incidencia',
+                    icon: 'warning',
+                    confirmButtonColor: '#f59e0b'
+                });
+                return;
+            }
             // Aquí se podría hacer un POST a un endpoint de incidencias
             console.log('Incidencia reportada:', { tipo, nota, id_viaje: viajeActual?.id_viaje });
-            alert(`✅ Incidencia reportada: "${tipo}". El controlador VW ha sido notificado.`);
+
+            Swal.fire({
+                title: '✅ Reportada',
+                text: `Incidencia: "${tipo}". El controlador VW ha sido notificado.`,
+                icon: 'success',
+                confirmButtonColor: '#22c55e'
+            });
             cerrarModalIncidencia();
         }
 

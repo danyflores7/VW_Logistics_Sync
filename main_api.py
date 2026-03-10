@@ -9,7 +9,8 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
+import json
 
 from cubicaje_engine import main as ejecutar_motor_cubicaje
 from data_pipeline import procesar_y_guardar_demanda
@@ -75,7 +76,8 @@ def init_db_mock_viajes():
                 cant_vacias_recibidas INTEGER DEFAULT 0,
                 cant_llenas_enviadas INTEGER DEFAULT 0,
                 cant_llenas_recibidas INTEGER DEFAULT 0,
-                minutos_retraso INTEGER DEFAULT 0
+                minutos_retraso INTEGER DEFAULT 0,
+                tme_json TEXT
             )
         """)
         
@@ -187,6 +189,7 @@ class ActualizacionEstado(BaseModel):
     id_viaje: int
     nuevo_estado: str
     cantidad: int = 0
+    tme_dict: Dict[str, int] = None
 
 @app.post("/api/actualizar-estado")
 async def actualizar_estado_viaje(payload: ActualizacionEstado):
@@ -233,6 +236,10 @@ async def actualizar_estado_viaje(payload: ActualizacionEstado):
             
             updates.extend(["real_llegada_vw = ?", "cant_llenas_recibidas = ?", "minutos_retraso = ?"])
             params.extend([now_str, payload.cantidad, retraso])
+            
+        if payload.tme_dict is not None:
+            updates.extend(["tme_json = ?"])
+            params.extend([json.dumps(payload.tme_dict)])
             
         params.append(payload.id_viaje)
         query = f"UPDATE viajes_activos SET {', '.join(updates)} WHERE id_viaje = ?"
@@ -669,7 +676,12 @@ def get_vw_dashboard_data(fecha: str = None):
         ventanas_activas = 0
         ocupacion_total_calculada = 0
         import math
+        import json
         total_cajas_reales_dia = 0
+        
+        # New globals for TME KPIs
+        reales_dia_por_tme = {}
+        esperadas_dia_por_tme = {}
             
         for ventana in lista_ventanas:
             h = ventana["hora_ventana"]
@@ -679,21 +691,51 @@ def get_vw_dashboard_data(fecha: str = None):
             # El estado en SQLite puede predominar, de lo contrario usamos el default del mock
             estado = db_info.get("estado", ventana["estado"])
             
-            # Cálculo de KPI del Viaje
+            # Cálculo de KPI del Viaje y TME breakdown
             cajas_esperadas = sum(p["llenas_enviar"] for p in ventana.get("partes", []))
             cajas_reales_viaje = db_info.get("cant_llenas_recibidas") or db_info.get("cant_llenas_enviadas") or 0
             kpi_viaje = 0.0
             
+            # Dictionary of real TME sums sent by repartidor
+            tme_dict_real = {}
+            if db_info.get("tme_json"):
+                try: tme_dict_real = json.loads(db_info["tme_json"])
+                except: pass
+            
+            # Calculate expected TME sums for this trip
+            tme_esperado = {}
+            for p in ventana.get("partes", []):
+                tipo = p.get("tipo_empaque", "N/A")
+                tme_esperado[tipo] = tme_esperado.get(tipo, 0) + p.get("llenas_enviar", 0)
+                
+            kpi_viaje_dict = {}
+            
+            for tme, esp in tme_esperado.items():
+                esperadas_dia_por_tme[tme] = esperadas_dia_por_tme.get(tme, 0) + esp
+                
             if estado in ('Completado', 'Entregado', 'Transito_Hacia_VW', 'En_Proveedor'):
                 kpi_viaje = round((cajas_reales_viaje / cajas_esperadas) * 100, 1) if cajas_esperadas > 0 else 100.0
                 total_cajas_reales_dia += cajas_reales_viaje
+                
+                for tme, esp in tme_esperado.items():
+                    # Fallback if tme_json is missing but we have real boxes
+                    real = tme_dict_real.get(tme, esp if cajas_reales_viaje > 0 else 0)
+                    pct = round((real / esp) * 100, 1) if esp > 0 else 100.0
+                    kpi_viaje_dict[tme] = {"real": real, "esperado": esp, "porcentaje": pct}
+                    reales_dia_por_tme[tme] = reales_dia_por_tme.get(tme, 0) + real
+            else:
+                for tme, esp in tme_esperado.items():
+                    kpi_viaje_dict[tme] = {"esperado": esp, "real": 0, "porcentaje": 0}
             
             # Gráfica JIT
+            tiene_datos = estado in ('Completado', 'Entregado', 'Transito_Hacia_VW', 'En_Proveedor')
             grafica_jit.append({
                 "hora": h,
-                "porcentaje": min(100.0, float(porcentaje_avg)),
+                "porcentaje_meta": min(100.0, float(porcentaje_avg)),
+                "porcentaje_real": float(porcentaje_avg) * (kpi_viaje / 100.0) if tiene_datos else 0.0,
                 "past": estado in ('Completado', 'Entregado'),
-                "kpi_viaje": kpi_viaje
+                "kpi_viaje": kpi_viaje,
+                "tiene_datos": tiene_datos
             })
             
             # KPIs Iteración
@@ -714,8 +756,18 @@ def get_vw_dashboard_data(fecha: str = None):
                     "tiempo": "Justo ahora"
                 })
                 
+            # Alertas: Desabasto Crítico JIT (KPI <= 50%)
+            if estado in ('Completado', 'Entregado', 'Transito_Hacia_VW', 'En_Proveedor') and kpi_viaje <= 50 and cajas_esperadas > 0:
+                alertas.append({
+                    "nivel": "critico",
+                    "titulo": f"Desabasto Severo ({kpi_viaje}%)",
+                    "desc_corta": f"Merma logística en AKSYS {ventana['zona_logistica']} - Ventana {h}",
+                    "accion": "Activar Protocolo",
+                    "tiempo": "Alerta Activa"
+                })
+                
             # Alerta de ocupación
-            if porcentaje_avg < 85 and len(ventana["partes"]) > 0 and estado not in ('Completado', 'Entregado'):
+            if porcentaje_avg < 50 and len(ventana["partes"]) > 0 and estado not in ('Completado', 'Entregado'):
                 alertas.append({
                     "nivel": "advertencia",
                     "titulo": f"Ocupación Logística Subóptima ({int(porcentaje_avg)}%)",
@@ -724,7 +776,8 @@ def get_vw_dashboard_data(fecha: str = None):
                     "tiempo": "Hace 2 min"
                 })
 
-            # Añadir filas para la tabla en vivo
+            # Añadir filas para la tabla en vivo (adjuntar kpi detail directly for rendering row groups if needed, though we only render at window level usually)
+            kpi_obj = {"global": kpi_viaje, "tmes": kpi_viaje_dict}
             for p in ventana["partes"]:
                 viajes_vivo.append({
                     "hora": h,
@@ -733,7 +786,8 @@ def get_vw_dashboard_data(fecha: str = None):
                     "empaques": p["llenas_enviar"],
                     "estado": estado,
                     "zona_tme": f"{ventana['zona_logistica']} (TME: {p['tipo_empaque']})",
-                    "kpi_viaje": kpi_viaje
+                    "kpi_viaje": kpi_viaje,
+                    "kpi_detail": kpi_obj
                 })
 
         # --- DATA MINING / PREDICCIÓN DE RIESGO DE DESABASTO ---
@@ -774,6 +828,12 @@ def get_vw_dashboard_data(fecha: str = None):
         ocupacion_dhl_kpi = (ocupacion_total_calculada / ventanas_activas) if ventanas_activas > 0 else 0
         cumplimiento_global_kpi = (total_cajas_reales_dia / total_empaques_hoy * 100) if total_empaques_hoy > 0 else 100.0
         
+        kpi_dia_por_tme = {}
+        for tme, esp in esperadas_dia_por_tme.items():
+            real = reales_dia_por_tme.get(tme, 0)
+            pct = round((real / esp) * 100, 1) if esp > 0 else 0.0
+            kpi_dia_por_tme[tme] = {"real": real, "esperado": esp, "porcentaje": pct}
+            
         # Calcular el total de piezas sumando la demanda
         total_piezas_hoy = sum(int(x.get("Demanda_Piezas", 0)) for x in detalles_pn)
         
@@ -782,7 +842,8 @@ def get_vw_dashboard_data(fecha: str = None):
                 "total_empaques": total_empaques_hoy,
                 "total_piezas": total_piezas_hoy,
                 "ocupacion_dhl": round(ocupacion_dhl_kpi, 1),
-                "cumplimiento_global": round(cumplimiento_global_kpi, 1)
+                "cumplimiento_global": round(cumplimiento_global_kpi, 1),
+                "por_tme": kpi_dia_por_tme
             },
             "alertas": alertas,
             "grafica_jit": grafica_jit,
