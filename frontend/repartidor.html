@@ -497,7 +497,7 @@
                         <div class="flex gap-2 mb-2">
                             <input type="number" id="input-cantidad" placeholder="Cajas Llenas recibidas..." class="flex-1 rounded-lg border-green-300 text-sm focus:ring-green-500" value="${data.cantidad_cajas}">
                         </div>
-                        <button id="btn-confirmar-estado" onclick="confirmarEstado(${data.id_viaje}, 'Completado')" class="w-full bg-green-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
+                        <button id="btn-confirmar-estado" onclick="validarYConfirmar(${data.id_viaje}, 'Completado', ${data.cantidad_cajas})" class="w-full bg-green-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
                             <span class="material-symbols-outlined">inventory_2</span> Validar Recepción de Cajas LLENAS
                         </button>
                     </div>
@@ -509,7 +509,7 @@
                         <div class="flex gap-2 mb-2">
                             <input type="number" id="input-cantidad" placeholder="Cajas Vacías enviadas..." class="flex-1 rounded-lg border-blue-300 text-sm focus:ring-blue-500" value="${data.cantidad_cajas}">
                         </div>
-                        <button id="btn-confirmar-estado" onclick="confirmarEstado(${data.id_viaje}, 'Transito_Hacia_Prov')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
+                        <button id="btn-confirmar-estado" onclick="validarYConfirmar(${data.id_viaje}, 'Transito_Hacia_Prov', ${data.cantidad_cajas})" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
                             <span class="material-symbols-outlined">local_shipping</span> Confirmar Salida de Cajas VACÍAS
                         </button>
                     </div>
@@ -530,8 +530,37 @@
         }
 
         // ════════════════════════════════════════════════════
-        //  CONFIRMAR ESTADO CON CANTIDAD
+        //  CONFIRMAR ESTADO CON CANTIDAD Y VALIDACIÓN
         // ════════════════════════════════════════════════════
+        function validarYConfirmar(idViaje, nuevoEstado, cantidadEsperada) {
+            const inputVal = document.getElementById('input-cantidad');
+            const cantidad = inputVal ? (parseInt(inputVal.value) || 0) : cantidadEsperada;
+
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const totalCb = checkboxes.length;
+            const marcados = Array.from(checkboxes).filter(cb => cb.checked).length;
+
+            // Validar que el checklist esté lleno si envia el 100% de cajas
+            if (totalCb > 0 && marcados < totalCb && cantidad >= cantidadEsperada) {
+                if (!confirm("⚠️ No has marcado todas las partes en tu checklist digital. ¿Deseas rellenar automáticamente la cantidad completa y enviarla?")) {
+                    return;
+                }
+            }
+
+            // Validar faltantes lógicos -> KPI
+            if (cantidad < cantidadEsperada) {
+                if (!confirm(`🚨 CANTIDAD INCOMPLETA 🚨\n\nSe esperaban ${cantidadEsperada} cajas de los proveedores para este viaje (KPI al 100%), pero estás registrando solo ${cantidad}.\n\n¿Deseas validar esta merma y continuar con el viaje bajo amonestación u observación para el proveedor?`)) {
+                    return;
+                }
+            } else if (cantidad > cantidadEsperada) {
+                if (!confirm(`🚛 SOBRECUPO: Estás recibiendo más cajas (${cantidad}) de las estipuladas por la ventana JIT (${cantidadEsperada}). ¿Confirmar excepción?`)) {
+                    return;
+                }
+            }
+
+            confirmarEstado(idViaje, nuevoEstado);
+        }
+
         async function confirmarEstado(idViaje, nuevoEstado) {
             try {
                 const inputVal = document.getElementById('input-cantidad').value;

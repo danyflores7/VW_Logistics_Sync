@@ -655,9 +655,9 @@ def get_vw_dashboard_data(fecha: str = None):
         conn.close()
 
         # Estructuras de respuesta principal
-        estado_por_ventana = {}
+        info_por_ventana = {}
         for row in viajes_db:
-            estado_por_ventana[row["ventana_hora"]] = row["estado"]
+            info_por_ventana[row["ventana_hora"]] = dict(row)
             
         proveedor_data = get_proveedor_ventanas(fecha=fecha)
         lista_ventanas = proveedor_data.get("ventanas", [])
@@ -669,19 +669,31 @@ def get_vw_dashboard_data(fecha: str = None):
         ventanas_activas = 0
         ocupacion_total_calculada = 0
         import math
-        
+        total_cajas_reales_dia = 0
+            
         for ventana in lista_ventanas:
             h = ventana["hora_ventana"]
             porcentaje_avg = ventana["ocupacion_porcentaje"]
             
+            db_info = info_por_ventana.get(h, {})
             # El estado en SQLite puede predominar, de lo contrario usamos el default del mock
-            estado = estado_por_ventana.get(h, ventana["estado"])
+            estado = db_info.get("estado", ventana["estado"])
+            
+            # Cálculo de KPI del Viaje
+            cajas_esperadas = sum(p["llenas_enviar"] for p in ventana.get("partes", []))
+            cajas_reales_viaje = db_info.get("cant_llenas_recibidas") or db_info.get("cant_llenas_enviadas") or 0
+            kpi_viaje = 0.0
+            
+            if estado in ('Completado', 'Entregado', 'Transito_Hacia_VW', 'En_Proveedor'):
+                kpi_viaje = round((cajas_reales_viaje / cajas_esperadas) * 100, 1) if cajas_esperadas > 0 else 100.0
+                total_cajas_reales_dia += cajas_reales_viaje
             
             # Gráfica JIT
             grafica_jit.append({
                 "hora": h,
                 "porcentaje": min(100.0, float(porcentaje_avg)),
-                "past": estado in ('Completado', 'Entregado')
+                "past": estado in ('Completado', 'Entregado'),
+                "kpi_viaje": kpi_viaje
             })
             
             # KPIs Iteración
@@ -720,7 +732,8 @@ def get_vw_dashboard_data(fecha: str = None):
                     "noparte": p["noparte"],
                     "empaques": p["llenas_enviar"],
                     "estado": estado,
-                    "zona_tme": f"{ventana['zona_logistica']} (TME: {p['tipo_empaque']})"
+                    "zona_tme": f"{ventana['zona_logistica']} (TME: {p['tipo_empaque']})",
+                    "kpi_viaje": kpi_viaje
                 })
 
         # --- DATA MINING / PREDICCIÓN DE RIESGO DE DESABASTO ---
@@ -757,10 +770,9 @@ def get_vw_dashboard_data(fecha: str = None):
                             "accion": "Planear Transporte",
                             "tiempo": "Proyección IA"
                         })
-        # --------------------------------------------------------
         # 5. KPIs Finales
         ocupacion_dhl_kpi = (ocupacion_total_calculada / ventanas_activas) if ventanas_activas > 0 else 0
-        cumplimiento_global_kpi = (total_entregados / len(lista_ventanas) * 100) if lista_ventanas else 0
+        cumplimiento_global_kpi = (total_cajas_reales_dia / total_empaques_hoy * 100) if total_empaques_hoy > 0 else 100.0
         
         # Calcular el total de piezas sumando la demanda
         total_piezas_hoy = sum(int(x.get("Demanda_Piezas", 0)) for x in detalles_pn)

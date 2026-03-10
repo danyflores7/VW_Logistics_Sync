@@ -498,7 +498,6 @@
                 });
 
                 if (!req.ok) throw new Error("Fallo en API actualizar estado");
-                await cargarDatosProveedor(); // Fallback de renderizado en caso de Websocket 404
 
             } catch (err) {
                 alert("Error al confirmar paso: " + err);

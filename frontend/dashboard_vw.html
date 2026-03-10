@@ -549,6 +549,7 @@
                                         <div>
                                             <span class="material-symbols-outlined text-sm align-middle mr-1">schedule</span> Ventana JIT: <span class="text-primary dark:text-blue-400 font-bold">${hora}</span>
                                             <span class="text-slate-500 font-medium ml-2 text-[10px]">(${viajes.length} Viajes)</span>
+                                            ${viajes[0] && viajes[0].kpi_viaje > 0 ? `<span class="bg-primary/10 text-primary font-bold px-2 py-0.5 rounded text-[10px] ml-2">KPI CUMPLIMIENTO: <span class="\${viajes[0].kpi_viaje < 100 ? 'text-red-500' : 'text-green-600'}">${viajes[0].kpi_viaje}%</span></span>` : ''}
                                         </div>
                                         <span class="material-symbols-outlined text-slate-500" id="icon-${horaId}">expand_more</span>
                                     </td>
@@ -740,12 +741,8 @@
                     const result = await response.json();
                     if (response.ok) {
                         console.log("Subida exitosa:", result);
+                        // La recarga se hará mágica por el WebSocket "nueva_demanda"
                         fileInput.value = ""; // Limpiar input
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        alert("¡Demanda subida y procesada con éxito!");
-                        // Refrescar manualmente en caso de que WS falle por el túnel
-                        await cargarDatosDashboard();
                     } else {
                         alert("Error del servidor: " + result.detail);
                         btn.innerHTML = originalText;
