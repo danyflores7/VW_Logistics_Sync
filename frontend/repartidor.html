@@ -335,53 +335,62 @@
         }
 
         // ════════════════════════════════════════════════════
-        //  RENDERIZAR LISTA DE PARTES
+        //  RENDERIZAR LISTA AGRUPADA POR TME
         // ════════════════════════════════════════════════════
-        function renderizarPartes(partes) {
+        function renderizarPartes(partes, estado) {
             const container = document.getElementById('lista-partes');
             if (!partes || partes.length === 0) {
-                container.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Sin partes asignadas</p>';
+                container.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Sin empaques asignados</p>';
                 return;
             }
 
-            container.innerHTML = partes.map((p, idx) => `
-                <div class="task-item flex items-center gap-3 bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm active:scale-[0.98] transition-transform"
-                     id="task-${idx}" data-idx="${idx}">
-                    <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-primary text-2xl">inventory_2</span>
+            // Agrupar por TME
+            const empaques = {};
+            partes.forEach(p => {
+                const tme = p.tipo_empaque || 'GENÉRICO';
+                if (!empaques[tme]) empaques[tme] = 0;
+                empaques[tme] += (p.cajas || 0);
+            });
+
+            // Mostrar campos de validación solo si se requiere confirmar acción
+            const showInputs = (estado === 'Pendiente' || estado === 'Transito_Hacia_VW' || estado === 'En_Transito');
+
+            container.innerHTML = Object.keys(empaques).map((tme, idx) => {
+                const cantEsperada = empaques[tme];
+                return `
+                <div class="task-item bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-3 group transition-all">
+                    <div class="flex items-center justify-between \${showInputs ? 'mb-3' : ''}">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary text-xl">inventory_2</span>
+                            <h4 class="font-bold text-slate-800 tracking-tight">Empaque TME: \${tme}</h4>
+                        </div>
+                        <span class="bg-primary/10 text-primary font-bold px-3 py-1 rounded text-sm text-center">
+                            x\${cantEsperada} \${showInputs ? '<br><span class="text-[9px] uppercase tracking-widest text-primary/70 font-black">Esperadas</span>' : ''}
+                        </span>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase">No. Parte · ${p.tipo_empaque}</p>
-                        <h4 class="text-base font-black text-primary font-mono tracking-tight leading-tight">${p.noparte}</h4>
-                        <p class="text-xs font-medium text-slate-500 mt-0.5">
-                            <span class="inline-flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px] text-primary">deployed_code</span>
-                                ${p.cajas} caja${p.cajas !== 1 ? 's' : ''} llena${p.cajas !== 1 ? 's' : ''}
-                            </span>
-                        </p>
-                    </div>
-                    <div class="shrink-0">
-                        <input type="checkbox" class="w-7 h-7 rounded-lg text-primary border-slate-300 focus:ring-primary cursor-pointer"
-                            onchange="marcarTarea(${idx}, this.checked)" />
-                    </div>
+                    \${showInputs ? \`
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-wider">A validar (Mismo TME)</label>
+                        <div class="flex items-center justify-between gap-3">
+                            <button onclick="adjustTMECount('\${tme}', -1)" class="w-10 h-10 rounded-lg bg-white border border-slate-300 shadow-sm flex items-center justify-center font-bold text-slate-500 active:bg-slate-100 active:scale-95 transition-all text-xl">-</button>
+                            <input type="number" id="input-tme-\${tme}" value="\${cantEsperada}" class="tme-input flex-1 text-center font-black text-xl bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary py-2 h-10 shadow-inner" min="0">
+                            <button onclick="adjustTMECount('\${tme}', 1)" class="w-10 h-10 rounded-lg bg-primary shadow flex items-center justify-center font-bold text-white active:bg-primary/90 active:scale-95 transition-all text-xl">+</button>
+                        </div>
+                    </div>\` : ''}
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
-        function marcarTarea(idx, checked) {
-            const item = document.getElementById(`task-${idx}`);
-            if (checked) {
-                item.classList.add('completed');
-                item.querySelector('.w-12').style.background = 'rgba(34,197,94,0.15)';
-                item.querySelector('.material-symbols-outlined').textContent = 'check_circle';
-                item.querySelector('.material-symbols-outlined').style.color = '#16a34a';
-            } else {
-                item.classList.remove('completed');
-                item.querySelector('.w-12').style.background = '';
-                item.querySelector('.material-symbols-outlined').textContent = 'inventory_2';
-                item.querySelector('.material-symbols-outlined').style.color = '';
+        window.adjustTMECount = function (tme, delta) {
+            const input = document.getElementById('input-tme-' + tme);
+            if (input) {
+                let val = parseInt(input.value) || 0;
+                val += delta;
+                if (val < 0) val = 0;
+                input.value = val;
             }
-        }
+        };
 
         // ════════════════════════════════════════════════════
         //  CARGA PRINCIPAL DE DATOS
@@ -418,11 +427,11 @@
 
                 // ── Rellenar UI principal ──
                 document.getElementById('hora-salida').textContent = `Próxima salida: ${data.hora_salida} AM`;
-                document.getElementById('zona-logistica').textContent = `ZONA LOGÍSTICA: ${data.destino.toUpperCase()}`;
+                document.getElementById('zona-logistica').textContent = `ZONA LOGÍSTICA: ${data.destino.toUpperCase()} `;
 
                 const pct = data.porcentaje_cubicaje;
-                document.getElementById('porcentaje-texto').textContent = `${pct}%`;
-                document.getElementById('porcentaje-barra').style.width = `${pct}%`;
+                document.getElementById('porcentaje-texto').textContent = `${pct}% `;
+                document.getElementById('porcentaje-barra').style.width = `${pct}% `;
 
                 // Color de la barra según eficiencia
                 const barra = document.getElementById('porcentaje-barra');
@@ -460,11 +469,11 @@
                 // Progreso del día
                 if (data.progreso) actualizarProgreso(data.progreso);
 
-                // Lista de partes
-                renderizarPartes(data.partes);
+                // Lista de partes y empaques
+                renderizarPartes(data.partes, data.estado);
 
                 // Documentación
-                document.getElementById('doc-referencia').textContent = `Hoja de Ruta #${String(data.id_viaje).padStart(4, '0')}`;
+                document.getElementById('doc-referencia').textContent = `Hoja de Ruta #${String(data.id_viaje).padStart(4, '0')} `;
 
                 // Botón principal
                 actualizarBoton(data);
@@ -493,10 +502,7 @@
             if (data.estado === 'Transito_Hacia_VW' || data.estado === 'En_Transito') {
                 html = `
                     <div class="bg-green-50 p-3 rounded-xl border border-green-200">
-                        <label class="block text-xs font-bold text-green-800 uppercase mb-2">Paso 4: Recepción VW (Fin Ciclo)</label>
-                        <div class="flex gap-2 mb-2">
-                            <input type="number" id="input-cantidad" placeholder="Cajas Llenas recibidas..." class="flex-1 rounded-lg border-green-300 text-sm focus:ring-green-500" value="${data.cantidad_cajas}">
-                        </div>
+                        <label class="block text-xs font-bold text-green-800 uppercase mb-3 text-center">Paso 4: Recepción VW (Fin Ciclo)</label>
                         <button id="btn-confirmar-estado" onclick="validarYConfirmar(${data.id_viaje}, 'Completado', ${data.cantidad_cajas})" class="w-full bg-green-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
                             <span class="material-symbols-outlined">inventory_2</span> Validar Recepción de Cajas LLENAS
                         </button>
@@ -505,10 +511,7 @@
             } else if (data.estado === 'Pendiente') {
                 html = `
                     <div class="bg-blue-50 p-3 rounded-xl border border-blue-200">
-                        <label class="block text-xs font-bold text-blue-800 uppercase mb-2">Paso 1: Salida de VW (Inicio Ciclo)</label>
-                        <div class="flex gap-2 mb-2">
-                            <input type="number" id="input-cantidad" placeholder="Cajas Vacías enviadas..." class="flex-1 rounded-lg border-blue-300 text-sm focus:ring-blue-500" value="${data.cantidad_cajas}">
-                        </div>
+                        <label class="block text-xs font-bold text-blue-800 uppercase mb-3 text-center">Paso 1: Salida de VW (Inicio Ciclo)</label>
                         <button id="btn-confirmar-estado" onclick="validarYConfirmar(${data.id_viaje}, 'Transito_Hacia_Prov', ${data.cantidad_cajas})" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black text-sm flex items-center justify-center gap-2 uppercase tracking-wide">
                             <span class="material-symbols-outlined">local_shipping</span> Confirmar Salida de Cajas VACÍAS
                         </button>
@@ -533,38 +536,35 @@
         //  CONFIRMAR ESTADO CON CANTIDAD Y VALIDACIÓN
         // ════════════════════════════════════════════════════
         function validarYConfirmar(idViaje, nuevoEstado, cantidadEsperada) {
-            const inputVal = document.getElementById('input-cantidad');
-            const cantidad = inputVal ? (parseInt(inputVal.value) || 0) : cantidadEsperada;
+            // Verificar inputs TME agregados 
+            let cantidadReal = 0;
+            const tmeInputs = document.querySelectorAll('.tme-input');
 
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            const totalCb = checkboxes.length;
-            const marcados = Array.from(checkboxes).filter(cb => cb.checked).length;
-
-            // Validar que el checklist esté lleno si envia el 100% de cajas
-            if (totalCb > 0 && marcados < totalCb && cantidad >= cantidadEsperada) {
-                if (!confirm("⚠️ No has marcado todas las partes en tu checklist digital. ¿Deseas rellenar automáticamente la cantidad completa y enviarla?")) {
-                    return;
-                }
+            if (tmeInputs.length > 0) {
+                tmeInputs.forEach(input => {
+                    cantidadReal += parseInt(input.value) || 0;
+                });
+            } else {
+                cantidadReal = cantidadEsperada;
             }
 
             // Validar faltantes lógicos -> KPI
-            if (cantidad < cantidadEsperada) {
-                if (!confirm(`🚨 CANTIDAD INCOMPLETA 🚨\n\nSe esperaban ${cantidadEsperada} cajas de los proveedores para este viaje (KPI al 100%), pero estás registrando solo ${cantidad}.\n\n¿Deseas validar esta merma y continuar con el viaje bajo amonestación u observación para el proveedor?`)) {
+            if (cantidadReal < cantidadEsperada) {
+                if (!confirm(`🚨 CANTIDAD INCOMPLETA 🚨\n\nSe esperaban ${cantidadEsperada} empaques en total.\nEstás validando el movimiento de solo ${cantidadReal} empaques.\n\n¿Quieres confirmar esta merma y continuar con el viaje bajo observación de KPI?`)) {
                     return;
                 }
-            } else if (cantidad > cantidadEsperada) {
-                if (!confirm(`🚛 SOBRECUPO: Estás recibiendo más cajas (${cantidad}) de las estipuladas por la ventana JIT (${cantidadEsperada}). ¿Confirmar excepción?`)) {
+            } else if (cantidadReal > cantidadEsperada) {
+                if (!confirm(`🚛 SOBRECUPO: Estás validando más empaques totales (${cantidadReal}) de los estipulados (${cantidadEsperada}). ¿Confirmar excepción?`)) {
                     return;
                 }
             }
 
-            confirmarEstado(idViaje, nuevoEstado);
+            confirmarEstado(idViaje, nuevoEstado, cantidadReal);
         }
 
-        async function confirmarEstado(idViaje, nuevoEstado) {
+        async function confirmarEstado(idViaje, nuevoEstado, cantidadConfirmada) {
             try {
-                const inputVal = document.getElementById('input-cantidad').value;
-                const cantidad = parseInt(inputVal) || 0;
+                const cantidad = cantidadConfirmada !== undefined ? cantidadConfirmada : 0;
                 const btn = document.getElementById('btn-confirmar-estado');
 
                 if (btn) {
