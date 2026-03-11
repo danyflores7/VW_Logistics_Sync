@@ -671,6 +671,17 @@ def get_vw_dashboard_data(fecha: str = None):
         
         viajes_vivo = []
         alertas = []
+
+        if camiones_requeridos > 10:
+            alertas.append({
+                "id": f"alerta_predict_{len(alertas)+1}",
+                "nivel": "critico",
+                "titulo": "ALERTA PREDICTIVA: Riesgo de Desabasto",
+                "desc_corta": f"La demanda requerirá {camiones_requeridos} camiones, superando la capacidad máxima de 10 viajes.",
+                "accion": "Ver en Simulador",
+                "tiempo": "Ahora"
+            })
+            
         grafica_jit = []
         total_entregados = 0
         ventanas_activas = 0

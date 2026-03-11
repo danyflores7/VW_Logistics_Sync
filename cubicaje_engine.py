@@ -34,19 +34,28 @@ def get_daily_demand(db_path, fecha=None):
         
         # Resolver fecha a buscar
         hoy_str = dt.now().strftime('%d/%m/%Y')
-        if not fecha or fecha == "DAILY":
+        columna_objetivo = None
+        
+        if fecha and fecha != "DAILY":
+            if fecha in date_columns:
+                columna_objetivo = fecha
+            elif "DAILY" in columnas:
+                columna_objetivo = "DAILY"
+        else:
             if hoy_str in date_columns:
-                fecha = hoy_str
+                columna_objetivo = hoy_str
+            elif "DAILY" in columnas:
+                columna_objetivo = "DAILY"
             elif date_columns:
-                fecha = date_columns[0]
+                columna_objetivo = date_columns[0]
                 
-        # Si pasaron una fecha que no existe, omitir
-        if fecha not in date_columns:
-            print(f"La fecha requerida {fecha} no existe en la base de datos.")
+        # Si no encontramos ninguna columna apta
+        if not columna_objetivo:
+            print(f"La columna requerida {fecha} no existe en la base de datos.")
             conn.close()
             return None
             
-        col_fecha = f'"{fecha}"'
+        col_fecha = f'"{columna_objetivo}"'
             
         query = f"""
         SELECT 

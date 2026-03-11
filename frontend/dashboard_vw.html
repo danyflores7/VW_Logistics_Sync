@@ -55,7 +55,7 @@
                 <div
                     class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-1.5 gap-2 border border-slate-200 dark:border-slate-700">
                     <span class="material-symbols-outlined text-slate-500 text-sm">calendar_today</span>
-                    <input type="date" id="date-selector"
+                    <input type="date" id="selector-fecha"
                         class="bg-transparent text-sm font-medium border-none outline-none focus:ring-0 w-[120px]" />
                 </div>
                 <div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
@@ -407,7 +407,7 @@
             const contenedorAlertas = document.getElementById('contenedor-alertas-secundario');
             const graficaContainer = document.getElementById('grafica-jit-container');
             // 0. Fecha Dinámica Inicial
-            const dateInputInit = document.getElementById('date-selector');
+            const dateInputInit = document.getElementById('selector-fecha');
             if (dateInputInit && !dateInputInit.value) {
                 // Formatting to YYYY-MM-DD for initial load based on local computer time
                 const today = new Date();
@@ -422,7 +422,7 @@
                 try {
                     console.log("Cargando datos frescos del Dashboard Analítico...");
                     let fetchUrl = '/api/vw/dashboard-data';
-                    const dateSelector = document.getElementById('date-selector');
+                    const dateSelector = document.getElementById('selector-fecha');
                     if (dateSelector && dateSelector.value) {
                         try {
                             const [year, month, day] = dateSelector.value.split('-');
@@ -757,7 +757,7 @@
             await cargarDatosDashboard();
 
             // Escuchar cambios en el selector de fecha
-            const dateInput = document.getElementById('date-selector');
+            const dateInput = document.getElementById('selector-fecha');
             if (dateInput) {
                 dateInput.addEventListener('change', async () => {
                     await cargarDatosDashboard();
