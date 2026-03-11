@@ -692,9 +692,14 @@ def get_vw_dashboard_data(fecha: str = None):
             estado = db_info.get("estado", ventana["estado"])
             
             # Cálculo de KPI del Viaje y TME breakdown
-            cajas_esperadas = sum(p["llenas_enviar"] for p in ventana.get("partes", []))
+            cajas_esperadas = sum(p.get("llenas_enviar", 0) for p in ventana.get("partes", []))
             cajas_reales_viaje = db_info.get("cant_llenas_recibidas") or db_info.get("cant_llenas_enviadas") or 0
+            
+            cajas_vacias_esperadas = sum(p.get("vacias_recibir", 0) for p in ventana.get("partes", []))
+            cajas_vacias_reales_viaje = db_info.get("cant_vacias_recibidas") or db_info.get("cant_vacias_enviadas") or 0
+            
             kpi_viaje = 0.0
+            kpi_viaje_vacias = 0.0
             
             # Dictionary of real TME sums sent by repartidor
             tme_dict_real = {}
@@ -715,6 +720,8 @@ def get_vw_dashboard_data(fecha: str = None):
                 
             if estado in ('Completado', 'Entregado', 'Transito_Hacia_VW', 'En_Proveedor'):
                 kpi_viaje = round((cajas_reales_viaje / cajas_esperadas) * 100, 1) if cajas_esperadas > 0 else 100.0
+                kpi_viaje_vacias = round((cajas_vacias_reales_viaje / cajas_vacias_esperadas) * 100, 1) if cajas_vacias_esperadas > 0 else 100.0
+                
                 total_cajas_reales_dia += cajas_reales_viaje
                 
                 for tme, esp in tme_esperado.items():
@@ -729,12 +736,21 @@ def get_vw_dashboard_data(fecha: str = None):
             
             # Gráfica JIT
             tiene_datos = estado in ('Completado', 'Entregado', 'Transito_Hacia_VW', 'En_Proveedor')
+            
+            mapa_horas_vacias = {
+                "06:00": "07:50", "08:20": "10:10", "10:40": "12:30", "13:00": "14:50", "15:35": "17:40",
+                "18:10": "20:00", "20:30": "22:20", "22:50": "00:40", "01:10": "03:00", "03:30": "05:20"
+            }
+            
             grafica_jit.append({
                 "hora": h,
-                "porcentaje_meta": min(100.0, float(porcentaje_avg)),
-                "porcentaje_real": float(porcentaje_avg) * (kpi_viaje / 100.0) if tiene_datos else 0.0,
+                "hora_vacias": mapa_horas_vacias.get(h, h),
+                "porcentaje_meta": 100.0,
+                "porcentaje_real_llenas": float(kpi_viaje) if tiene_datos else 0.0,
+                "porcentaje_real_vacias": float(kpi_viaje_vacias) if tiene_datos else 0.0,
                 "past": estado in ('Completado', 'Entregado'),
                 "kpi_viaje": kpi_viaje,
+                "kpi_viaje_vacias": kpi_viaje_vacias,
                 "tiene_datos": tiene_datos
             })
             

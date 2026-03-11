@@ -685,7 +685,7 @@
                     const tieneDatos = item.tiene_datos !== undefined ? item.tiene_datos : item.past;
 
                     // helper para renderizar una barra
-                    const renderBarItem = (realValKey, calcKPIKey) => {
+                    const renderBarItem = (realValKey, calcKPIKey, labelHora) => {
                         const realVal = item[realValKey] !== undefined ? item[realValKey] : 0;
                         const calcKPI = item[calcKPIKey] !== undefined ? item[calcKPIKey] : 100;
 
@@ -722,12 +722,12 @@
                                     <div class="${bgBarActual} w-full rounded-t-sm z-20 transition-all hover:opacity-80 shadow-sm" style="height: ${realVal}%"></div>
                                 </div>
                             </div>
-                            <span class="text-xs font-bold text-slate-500">${item.hora}</span>
+                            <span class="text-xs font-bold text-slate-500">${labelHora || item.hora}</span>
                         </div>`;
                     };
 
-                    htmlContentLlenos += renderBarItem('porcentaje_real_llenas', 'kpi_viaje');
-                    htmlContentVacias += renderBarItem('porcentaje_real_vacias', 'kpi_viaje_vacias');
+                    htmlContentLlenos += renderBarItem('porcentaje_real_llenas', 'kpi_viaje', item.hora);
+                    htmlContentVacias += renderBarItem('porcentaje_real_vacias', 'kpi_viaje_vacias', item.hora_vacias || item.hora);
                 });
 
                 graficaContainerLlenos.innerHTML = htmlContentLlenos;
