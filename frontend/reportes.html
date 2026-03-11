@@ -5,8 +5,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
@@ -29,6 +28,104 @@
         }
     </script>
     <title>VW Reportes: Huella Logística</title>
+    <style>
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+            }
+        }
+
+        @keyframes barGrow {
+            from {
+                width: 0%;
+            }
+        }
+
+        .animate-slide-left {
+            animation: slideInLeft 0.6s ease-out both;
+        }
+
+        .animate-slide-right {
+            animation: slideInRight 0.6s ease-out both;
+        }
+
+        .animate-count {
+            animation: countUp 0.5s ease-out both;
+        }
+
+        .animate-pulse-glow {
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+
+        .bar-animate {
+            animation: barGrow 1s ease-out both;
+        }
+
+        .versus-badge {
+            background: linear-gradient(135deg, #1e0052, #4f46e5);
+            box-shadow: 0 4px 20px rgba(30, 0, 82, 0.4);
+        }
+
+        .scenario-card-a {
+            background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+            border: 1px solid #fecaca;
+        }
+
+        .scenario-card-b {
+            background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+            border: 1px solid #a7f3d0;
+        }
+
+        .savings-banner {
+            background: linear-gradient(135deg, #065f46 0%, #047857 30%, #10b981 100%);
+        }
+
+        .truck-bar {
+            transition: width 1s ease-out;
+        }
+    </style>
 </head>
 
 <body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
@@ -60,8 +157,8 @@
                         <p class="text-sm font-medium">Puebla - Nave 1</p>
                     </div>
                     <div class="relative">
-                        <div class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-primary/20"
-                            data-alt="User profile placeholder">
+                        <div
+                            class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-primary/20">
                             <span class="material-symbols-outlined text-primary">person</span>
                         </div>
                         <div
@@ -73,8 +170,9 @@
         </header>
 
         <main class="flex-1 p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+            <!-- ════════════ HEADER SECTION ════════════ -->
             <div
-                class="flex justify-between items-center bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <div>
                     <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
                         <span class="material-symbols-outlined text-primary text-3xl">monitoring</span>
@@ -100,6 +198,7 @@
                 </div>
             </div>
 
+            <!-- ════════════ KPIs ROW ════════════ -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- KPI: CUMPLIMIENTO -->
                 <div
@@ -147,7 +246,7 @@
                 </div>
             </div>
 
-            <!-- TABLA/GRÁFICA DIÉSEL -->
+            <!-- ════════════ GRÁFICA DIÉSEL ════════════ -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                     <span class="material-symbols-outlined text-red-500"
@@ -157,23 +256,268 @@
 
                 <div id="chart-container"
                     class="w-full flex items-end gap-2 h-64 border-b border-slate-100 pb-2 relative">
-                    <!-- Barras dinámicas inyectadas por JS -->
                     <div class="absolute inset-0 flex items-center justify-center bg-white/50 z-10" id="chart-loader">
                         <p class="text-slate-500 font-bold animate-pulse">Cargando datos...</p>
                     </div>
                 </div>
             </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- ★ SIMULADOR IA: CONSOLIDACIÓN DE FLOTA ★ (Funcionalidad Estrella) -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
+                id="simulador-ia-section">
+                <!-- Header del Simulador -->
+                <div class="bg-gradient-to-r from-primary via-indigo-700 to-indigo-600 px-8 py-6 text-white">
+                    <div class="flex items-start justify-between gap-4 flex-wrap">
+                        <div class="flex items-center gap-4">
+                            <div class="size-14 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center">
+                                <span class="material-symbols-outlined text-3xl"
+                                    style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-black tracking-tight flex items-center gap-3">
+                                    Simulador IA: Consolidación de Flota
+                                    <span
+                                        class="bg-yellow-400 text-primary text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Nuevo</span>
+                                </h2>
+                                <p class="text-indigo-200 text-sm mt-1">Motor 3D Bin Packing · Comparativa de escenarios
+                                    en
+                                    tiempo real</p>
+                            </div>
+                        </div>
+                        <!-- ★ SELECTOR DE FECHA ★ -->
+                        <div class="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-4 py-3">
+                            <span class="material-symbols-outlined text-indigo-200"
+                                style="font-variation-settings: 'FILL' 1;">date_range</span>
+                            <div class="flex flex-col">
+                                <label for="fecha-optimizacion"
+                                    class="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">Fecha de
+                                    análisis</label>
+                                <input type="date" id="fecha-optimizacion"
+                                    class="bg-white/20 border border-white/30 text-white text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none cursor-pointer"
+                                    style="color-scheme: dark;" />
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Info chips -->
+                    <div class="flex flex-wrap gap-3 mt-5">
+                        <div class="bg-white/10 backdrop-blur rounded-full px-4 py-1.5 text-sm flex items-center gap-2">
+                            <span class="material-symbols-outlined text-base">calendar_today</span>
+                            <span id="sim-fecha-label">Cargando...</span>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur rounded-full px-4 py-1.5 text-sm flex items-center gap-2">
+                            <span class="material-symbols-outlined text-base">inventory_2</span>
+                            <span id="sim-cajas-label">-- cajas totales</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading state -->
+                <div id="sim-loader" class="p-12 flex flex-col items-center justify-center gap-4">
+                    <div class="size-12 border-4 border-indigo-200 border-t-primary rounded-full animate-spin"></div>
+                    <p class="text-slate-500 font-semibold">Ejecutando motor de optimización 3D...</p>
+                </div>
+
+                <!-- Content (hidden until data loads) -->
+                <div id="sim-content" class="hidden">
+                    <!-- ══ Escenarios Side by Side ══ -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-0 relative">
+                        <!-- VS Badge (center) -->
+                        <div class="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                            <div
+                                class="versus-badge size-16 rounded-full flex items-center justify-center text-white font-black text-lg shadow-2xl">
+                                VS
+                            </div>
+                        </div>
+
+                        <!-- ── Escenario A: JIT Actual ── -->
+                        <div class="p-8 border-b lg:border-b-0 lg:border-r border-slate-200 animate-slide-left">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="size-10 rounded-xl bg-red-100 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-red-600"
+                                        style="font-variation-settings: 'FILL' 1;">warning</span>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-lg">Modelo JIT Actual</h3>
+                                    <p class="text-xs text-red-500 font-medium">10 Ventanas Fijas Obligatorias</p>
+                                </div>
+                            </div>
+
+                            <!-- Metrics A -->
+                            <div class="space-y-5">
+                                <div class="scenario-card-a rounded-xl p-5">
+                                    <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Viajes
+                                        Programados</p>
+                                    <p id="sim-a-viajes" class="text-4xl font-black text-red-700">--</p>
+                                </div>
+                                <div class="scenario-card-a rounded-xl p-5">
+                                    <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Diésel
+                                        Gastado</p>
+                                    <div class="flex items-baseline gap-2">
+                                        <p id="sim-a-diesel" class="text-4xl font-black text-red-700">--</p>
+                                        <span class="text-lg font-bold text-red-400">Lts</span>
+                                    </div>
+                                </div>
+                                <div class="scenario-card-a rounded-xl p-5">
+                                    <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Ocupación
+                                        Promedio</p>
+                                    <div class="flex items-center gap-4">
+                                        <p id="sim-a-ocupacion" class="text-4xl font-black text-red-700">--%</p>
+                                        <div class="flex-1">
+                                            <div class="h-4 bg-red-100 rounded-full overflow-hidden">
+                                                <div id="sim-a-bar"
+                                                    class="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full truck-bar"
+                                                    style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Detalle ventanas -->
+                            <div class="mt-6">
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Ocupación por
+                                    Ventana</p>
+                                <div id="sim-a-ventanas" class="space-y-2"></div>
+                            </div>
+                        </div>
+
+                        <!-- ── Escenario B: IA Optimizado ── -->
+                        <div class="p-8 animate-slide-right">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="size-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-emerald-600"
+                                        style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-lg">Modelo IA Optimizado</h3>
+                                    <p class="text-xs text-emerald-500 font-medium">Consolidación Máxima por 3D Bin
+                                        Packing</p>
+                                </div>
+                            </div>
+
+                            <!-- Metrics B -->
+                            <div class="space-y-5">
+                                <div class="scenario-card-b rounded-xl p-5">
+                                    <p class="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">Viajes
+                                        Sugeridos</p>
+                                    <p id="sim-b-viajes" class="text-4xl font-black text-emerald-700">--</p>
+                                </div>
+                                <div class="scenario-card-b rounded-xl p-5">
+                                    <p class="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">Diésel
+                                        Gastado</p>
+                                    <div class="flex items-baseline gap-2">
+                                        <p id="sim-b-diesel" class="text-4xl font-black text-emerald-700">--</p>
+                                        <span class="text-lg font-bold text-emerald-400">Lts</span>
+                                    </div>
+                                </div>
+                                <div class="scenario-card-b rounded-xl p-5">
+                                    <p class="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">
+                                        Ocupación Promedio</p>
+                                    <div class="flex items-center gap-4">
+                                        <p id="sim-b-ocupacion" class="text-4xl font-black text-emerald-700">--%</p>
+                                        <div class="flex-1">
+                                            <div class="h-4 bg-emerald-100 rounded-full overflow-hidden">
+                                                <div id="sim-b-bar"
+                                                    class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full truck-bar"
+                                                    style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Detalle camiones optimizados -->
+                            <div class="mt-6">
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Ocupación por
+                                    Camión Optimizado</p>
+                                <div id="sim-b-camiones" class="space-y-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ══ BANNER DE AHORRO ══ -->
+                    <div class="savings-banner p-8 text-white animate-pulse-glow">
+                        <div class="max-w-4xl mx-auto">
+                            <div class="flex items-center gap-3 mb-6">
+                                <span class="material-symbols-outlined text-3xl text-emerald-200"
+                                    style="font-variation-settings: 'FILL' 1;">trending_down</span>
+                                <h3 class="text-xl font-black uppercase tracking-wider">Ahorro Potencial Diario</h3>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <!-- Ahorro Diésel -->
+                                <div class="bg-white/10 backdrop-blur rounded-2xl p-5 text-center">
+                                    <span class="material-symbols-outlined text-3xl text-emerald-200 mb-2"
+                                        style="font-variation-settings: 'FILL' 1;">local_gas_station</span>
+                                    <p id="sim-ahorro-diesel" class="text-3xl font-black">-- Lts</p>
+                                    <p class="text-emerald-200 text-xs font-medium mt-1">Diésel Ahorrado</p>
+                                </div>
+
+                                <!-- Ahorro Camiones -->
+                                <div class="bg-white/10 backdrop-blur rounded-2xl p-5 text-center">
+                                    <span class="material-symbols-outlined text-3xl text-emerald-200 mb-2"
+                                        style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+                                    <p id="sim-ahorro-camiones" class="text-3xl font-black">-- camiones</p>
+                                    <p class="text-emerald-200 text-xs font-medium mt-1">Menos en Circulación</p>
+                                </div>
+
+                                <!-- Ahorro Monetario -->
+                                <div class="bg-white/10 backdrop-blur rounded-2xl p-5 text-center">
+                                    <span class="material-symbols-outlined text-3xl text-yellow-300 mb-2"
+                                        style="font-variation-settings: 'FILL' 1;">savings</span>
+                                    <p id="sim-ahorro-dinero" class="text-3xl font-black">$--</p>
+                                    <p class="text-emerald-200 text-xs font-medium mt-1">Ahorro Diario MXN</p>
+                                </div>
+
+                                <!-- CO2 -->
+                                <div class="bg-white/10 backdrop-blur rounded-2xl p-5 text-center">
+                                    <span class="material-symbols-outlined text-3xl text-green-300 mb-2"
+                                        style="font-variation-settings: 'FILL' 1;">eco</span>
+                                    <p id="sim-ahorro-co2" class="text-3xl font-black">-- kg</p>
+                                    <p class="text-emerald-200 text-xs font-medium mt-1">CO₂ Reducido</p>
+                                </div>
+                            </div>
+
+                            <!-- Monthly projection -->
+                            <div
+                                class="mt-6 pt-5 border-t border-white/20 flex flex-col sm:flex-row items-center justify-center gap-6 text-center">
+                                <div>
+                                    <p class="text-emerald-200 text-xs font-medium uppercase tracking-wider">Proyección
+                                        Mensual (22 días hábiles)</p>
+                                    <p id="sim-ahorro-mensual" class="text-2xl font-black text-yellow-300 mt-1">$--</p>
+                                </div>
+                                <div class="hidden sm:block h-8 w-[1px] bg-white/20"></div>
+                                <div>
+                                    <p class="text-emerald-200 text-xs font-medium uppercase tracking-wider">Proyección
+                                        Anual (264 días hábiles)</p>
+                                    <p id="sim-ahorro-anual" class="text-2xl font-black text-yellow-300 mt-1">$--</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
+
+        <!-- Footer -->
+        <footer class="text-center py-4 text-xs text-slate-400 border-t border-slate-200">
+            © 2024 Volkswagen Logistics Control System | Planta Puebla | V 2.4.1
+        </footer>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // ═══════════════════════════════════════
+            // REPORTES (KPIs + Gráfica Diésel)
+            // ═══════════════════════════════════════
             const btns = document.querySelectorAll('.filter-btn');
             let currentFilter = 'diario';
 
             btns.forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    // Update Active Styles
                     btns.forEach(b => {
                         b.classList.remove('bg-white', 'text-primary', 'shadow-sm', 'active');
                         b.classList.add('text-slate-500');
@@ -189,7 +533,7 @@
 
             async function loadReport(filtro) {
                 const container = document.getElementById('chart-container');
-                container.innerHTML = `<div class="absolute inset-0 flex items-center justify-center bg-white/50 z-10" id="chart-loader">
+                container.innerHTML = `<div class="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
                         <p class="text-slate-500 font-bold animate-pulse">Cargando datos...</p>
                     </div>`;
 
@@ -216,17 +560,15 @@
                     return;
                 }
 
-                // Encontrar el max para normalizar (minimo 15L para saltos visuales)
                 const maxVal = Math.max(...dataArr.map(d => d.desperdicioLts), 15);
 
                 dataArr.forEach(item => {
                     const rawPct = (item.desperdicioLts / maxVal) * 100;
-                    const pct = Math.max(rawPct, 2); // al menos visible
+                    const pct = Math.max(rawPct, 2);
 
                     const barWrapper = document.createElement('div');
                     barWrapper.className = "flex-1 flex flex-col items-center justify-end h-full gap-2 group relative";
 
-                    // Tooltip
                     const tooltip = document.createElement('div');
                     tooltip.className = "absolute -top-10 bg-slate-800 text-white text-xs font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none whitespace-nowrap";
                     tooltip.innerHTML = `${item.desperdicioLts} Lts`;
@@ -246,8 +588,133 @@
                 });
             }
 
-            // Inicial carga
+            // Carga inicial reportes
             loadReport(currentFilter);
+
+            // ═══════════════════════════════════════
+            // ★ SIMULADOR IA (Optimización)
+            // ═══════════════════════════════════════
+            async function loadSimulador(fechaParam = null) {
+                const loader = document.getElementById('sim-loader');
+                const content = document.getElementById('sim-content');
+
+                // Mostrar loader, ocultar contenido previo
+                loader.classList.remove('hidden');
+                loader.innerHTML = `<div class="size-12 border-4 border-indigo-200 border-t-primary rounded-full animate-spin"></div>
+                    <p class="text-slate-500 font-semibold">Ejecutando motor de optimización 3D...</p>`;
+                content.classList.add('hidden');
+
+                try {
+                    const url = fechaParam
+                        ? `/api/vw/optimizacion?fecha=${encodeURIComponent(fechaParam)}`
+                        : '/api/vw/optimizacion';
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+
+                    // Header chips
+                    document.getElementById('sim-fecha-label').textContent = `Fecha: ${data.fecha_analisis}`;
+                    document.getElementById('sim-cajas-label').textContent = `${data.total_cajas_dia} cajas totales`;
+
+                    // Escenario A
+                    const a = data.escenario_a;
+                    document.getElementById('sim-a-viajes').textContent = a.camiones;
+                    document.getElementById('sim-a-diesel').textContent = a.diesel_total_lts;
+                    document.getElementById('sim-a-ocupacion').textContent = `${a.ocupacion_promedio_pct}%`;
+                    document.getElementById('sim-a-bar').style.width = `${a.ocupacion_promedio_pct}%`;
+
+                    // Detalle ventanas A
+                    const ventanasContainer = document.getElementById('sim-a-ventanas');
+                    ventanasContainer.innerHTML = '';
+                    a.detalle_ventanas.forEach(v => {
+                        const color = v.ocupacion_pct >= 60 ? 'bg-amber-400' : v.ocupacion_pct >= 30 ? 'bg-red-400' : 'bg-red-600';
+                        ventanasContainer.innerHTML += `
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="font-mono font-bold text-slate-500 w-12">${v.ventana}</span>
+                                <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="${color} h-full rounded-full bar-animate" style="width: ${v.ocupacion_pct}%"></div>
+                                </div>
+                                <span class="font-bold text-slate-600 w-12 text-right">${v.ocupacion_pct}%</span>
+                            </div>
+                        `;
+                    });
+
+                    // Escenario B
+                    const b = data.escenario_b;
+                    document.getElementById('sim-b-viajes').textContent = b.camiones;
+                    document.getElementById('sim-b-diesel').textContent = b.diesel_total_lts;
+                    document.getElementById('sim-b-ocupacion').textContent = `${b.ocupacion_promedio_pct}%`;
+                    document.getElementById('sim-b-bar').style.width = `${b.ocupacion_promedio_pct}%`;
+
+                    // Detalle camiones B
+                    const camionesContainer = document.getElementById('sim-b-camiones');
+                    camionesContainer.innerHTML = '';
+                    b.detalle_camiones.forEach(c => {
+                        const color = c.ocupacion_pct >= 90 ? 'bg-emerald-500' : c.ocupacion_pct >= 70 ? 'bg-emerald-400' : 'bg-yellow-400';
+                        camionesContainer.innerHTML += `
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="font-mono font-bold text-slate-500 w-20">Camión ${c.camion}</span>
+                                <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="${color} h-full rounded-full bar-animate" style="width: ${c.ocupacion_pct}%"></div>
+                                </div>
+                                <span class="font-bold text-emerald-700 w-12 text-right">${c.ocupacion_pct}%</span>
+                            </div>
+                        `;
+                    });
+
+                    // Ahorro
+                    const ah = data.ahorro;
+                    document.getElementById('sim-ahorro-diesel').textContent = `${ah.diesel_ahorrado_lts} Lts`;
+                    document.getElementById('sim-ahorro-camiones').textContent = `${ah.camiones_menos} camiones`;
+                    document.getElementById('sim-ahorro-dinero').textContent = `$${ah.ahorro_monetario_diario_mxn.toLocaleString('es-MX')}`;
+                    document.getElementById('sim-ahorro-co2').textContent = `${ah.reduccion_emisiones_co2_kg} kg`;
+                    document.getElementById('sim-ahorro-mensual').textContent = `$${ah.ahorro_monetario_mensual_mxn.toLocaleString('es-MX')} MXN`;
+
+                    // Cálculo anual (264 días hábiles)
+                    const anual = (ah.ahorro_monetario_diario_mxn * 264);
+                    document.getElementById('sim-ahorro-anual').textContent = `$${anual.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
+
+                    // Show content, hide loader
+                    loader.classList.add('hidden');
+                    content.classList.remove('hidden');
+
+                } catch (err) {
+                    console.error("Error loading simulador:", err);
+                    loader.innerHTML = `
+                        <div class="text-center p-8">
+                            <span class="material-symbols-outlined text-5xl text-red-400">error</span>
+                            <p class="text-red-500 font-bold mt-3">Error al cargar simulación</p>
+                            <p class="text-slate-400 text-sm mt-1">${err.message}</p>
+                        </div>
+                    `;
+                }
+            }
+
+            // ═══════════════════════════════════════
+            // ★ DATE PICKER (Viaje en el tiempo)
+            // ═══════════════════════════════════════
+            const dateInput = document.getElementById('fecha-optimizacion');
+
+            // Inicializar con la fecha de hoy (formato YYYY-MM-DD para el input type=date)
+            const hoy = new Date();
+            const yyyy = hoy.getFullYear();
+            const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dd = String(hoy.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+
+            dateInput.addEventListener('change', () => {
+                const val = dateInput.value; // formato YYYY-MM-DD
+                if (!val) return;
+
+                // Convertir de YYYY-MM-DD a DD/MM/YYYY (formato que espera el backend)
+                const [y, m, d] = val.split('-');
+                const fechaDDMMYYYY = `${d}/${m}/${y}`;
+
+                loadSimulador(fechaDDMMYYYY);
+            });
+
+            // Cargar simulador (hoy por defecto, sin param = el motor usa la fecha actual)
+            loadSimulador();
         });
     </script>
 </body>

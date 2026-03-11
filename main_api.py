@@ -898,6 +898,185 @@ def get_vw_dashboard_data(fecha: str = None):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error cargando dashboard datos: {e}")
 
+# === 6. SIMULADOR IA: CONSOLIDACIÓN DE FLOTA ===
+
+@app.get("/api/vw/optimizacion")
+def get_optimizacion_flota(fecha: str = None):
+    """
+    Simulador de Consolidación de Carga – Compara:
+      • Escenario A (JIT Actual): 10 ventanas fijas → camiones parcialmente cargados.
+      • Escenario B (IA Optimizado): Empaquetar TODA la demanda en el mínimo de camiones llenándolos al máximo.
+    Calcula el ahorro potencial en diésel y camiones.
+    """
+    try:
+        import math
+        from cubicaje_engine import (
+            get_daily_demand, calculate_required_boxes,
+            calculate_truck_occupancy,
+            TRUCK_LENGTH, TRUCK_WIDTH, TRUCK_HEIGHT
+        )
+
+        TRUCK_VOLUMEN_M3 = TRUCK_LENGTH * TRUCK_WIDTH * TRUCK_HEIGHT
+        DIESEL_POR_VIAJE = 15.0
+
+        ventanas_n25 = ["06:00", "08:20", "10:40", "13:00", "18:10", "20:30", "22:50", "01:10", "03:30"]
+        ventanas_n84 = ["15:35"]
+        orden_ventanas = ["06:00", "08:20", "10:40", "13:00", "15:35", "18:10", "20:30", "22:50", "01:10", "03:30"]
+
+        # ── Obtener demanda y cubicaje ──────────────────────────────
+        df = get_daily_demand(DB_PATH, fecha=fecha)
+        if df is None or df.empty:
+            raise HTTPException(status_code=404, detail="No hay datos de demanda para la fecha indicada")
+
+        df = calculate_required_boxes(df)
+        df = calculate_truck_occupancy(df)
+
+        # ════════════════════════════════════════════════════════════
+        # ESCENARIO A – JIT ACTUAL (10 ventanas fijas, Heijunka)
+        # ════════════════════════════════════════════════════════════
+        volumen_por_ventana = {h: 0.0 for h in orden_ventanas}
+
+        for _, row in df.iterrows():
+            tmg_zona = row.get("TME", "")
+            cajas_req = int(row.get("Cajas_Requeridas", 0))
+            l = float(row.get("Largo m", 0))
+            w = float(row.get("Ancho m", 0))
+            h_ll = float(row.get("Alto m", 0))
+            if l <= 0 or w <= 0 or h_ll <= 0 or cajas_req <= 0:
+                continue
+            vol_caja = l * w * h_ll
+
+            if tmg_zona == "2GM":
+                volumen_por_ventana["15:35"] += cajas_req * vol_caja
+            else:
+                cxv = math.floor(cajas_req / len(ventanas_n25))
+                sob = cajas_req % len(ventanas_n25)
+                for idx, h in enumerate(ventanas_n25):
+                    asig = cxv + (1 if idx < sob else 0)
+                    volumen_por_ventana[h] += asig * vol_caja
+
+        # Calcular # camiones y ocupación por ventana
+        escenario_a_camiones = 0
+        escenario_a_diesel_total = 0.0
+        sum_ocupacion_a = 0.0
+        ventanas_detalle = []
+
+        for h in orden_ventanas:
+            vol = volumen_por_ventana[h]
+            cam = max(1, math.ceil(vol / TRUCK_VOLUMEN_M3)) if vol > 0 else 1
+            vol_cam_total = cam * TRUCK_VOLUMEN_M3
+            ocu = (vol / vol_cam_total) * 100.0 if vol_cam_total > 0 else 0.0
+            desp = DIESEL_POR_VIAJE * (1.0 - ocu / 100.0)
+            escenario_a_camiones += cam
+            escenario_a_diesel_total += desp
+            sum_ocupacion_a += ocu
+            ventanas_detalle.append({
+                "ventana": h,
+                "camiones": cam,
+                "ocupacion_pct": round(ocu, 1),
+                "diesel_desperdiciado": round(desp, 2)
+            })
+
+        ocupacion_promedio_a = round(sum_ocupacion_a / len(orden_ventanas), 1)
+
+        # ════════════════════════════════════════════════════════════
+        # ESCENARIO B – IA OPTIMIZADO (consolidar todo en mínimo de camiones)
+        # Algoritmo: First Fit Decreasing por volumen
+        # ════════════════════════════════════════════════════════════
+        cajas_consolidadas = []   # lista de (volumen_unitario, cantidad)
+
+        for _, row in df.iterrows():
+            cajas_req = int(row.get("Cajas_Requeridas", 0))
+            l = float(row.get("Largo m", 0))
+            w = float(row.get("Ancho m", 0))
+            h_ll = float(row.get("Alto m", 0))
+            if l <= 0 or w <= 0 or h_ll <= 0 or cajas_req <= 0:
+                continue
+            vol_caja = l * w * h_ll
+            cajas_consolidadas.append({"vol": vol_caja, "cant": cajas_req})
+
+        # Expandir a unidades individuales para bin packing preciso
+        todas_cajas = []
+        for item in cajas_consolidadas:
+            todas_cajas.extend([item["vol"]] * item["cant"])
+
+        # Ordenar de mayor a menor (First Fit Decreasing)
+        todas_cajas.sort(reverse=True)
+
+        # First Fit Decreasing Bin Packing
+        camiones_b = []  # cada elemento = volumen_usado en ese camión
+        for vol_caja in todas_cajas:
+            colocada = False
+            for i in range(len(camiones_b)):
+                if camiones_b[i] + vol_caja <= TRUCK_VOLUMEN_M3:
+                    camiones_b[i] += vol_caja
+                    colocada = True
+                    break
+            if not colocada:
+                camiones_b.append(vol_caja)
+
+        # Calcular métricas del escenario B
+        escenario_b_camiones = len(camiones_b) if camiones_b else 1
+        escenario_b_diesel_total = 0.0
+        sum_ocupacion_b = 0.0
+
+        camiones_b_detalle = []
+        for idx, vol_usado in enumerate(camiones_b):
+            ocu = (vol_usado / TRUCK_VOLUMEN_M3) * 100.0
+            desp = DIESEL_POR_VIAJE * (1.0 - ocu / 100.0)
+            escenario_b_diesel_total += desp
+            sum_ocupacion_b += ocu
+            camiones_b_detalle.append({
+                "camion": idx + 1,
+                "ocupacion_pct": round(ocu, 1),
+                "diesel_desperdiciado": round(desp, 2)
+            })
+
+        ocupacion_promedio_b = round(sum_ocupacion_b / escenario_b_camiones, 1) if escenario_b_camiones > 0 else 0.0
+
+        # ════════════════════════════════════════════════════════════
+        # AHORRO POTENCIAL
+        # ════════════════════════════════════════════════════════════
+        ahorro_camiones = escenario_a_camiones - escenario_b_camiones
+        ahorro_diesel = round(escenario_a_diesel_total - escenario_b_diesel_total, 2)
+        # Costo estimado por litro de diésel en MXN
+        costo_litro_diesel_mxn = 24.50
+        ahorro_monetario_diario = round(ahorro_diesel * costo_litro_diesel_mxn, 2)
+
+        total_cajas = int(df["Cajas_Requeridas"].sum())
+
+        return {
+            "fecha_analisis": fecha or datetime.now().strftime("%d/%m/%Y"),
+            "total_cajas_dia": total_cajas,
+            "escenario_a": {
+                "nombre": "Modelo JIT Actual (10 Ventanas Fijas)",
+                "camiones": escenario_a_camiones,
+                "diesel_total_lts": round(escenario_a_diesel_total, 2),
+                "ocupacion_promedio_pct": ocupacion_promedio_a,
+                "detalle_ventanas": ventanas_detalle
+            },
+            "escenario_b": {
+                "nombre": "Modelo IA Optimizado (Consolidación Máxima)",
+                "camiones": escenario_b_camiones,
+                "diesel_total_lts": round(escenario_b_diesel_total, 2),
+                "ocupacion_promedio_pct": ocupacion_promedio_b,
+                "detalle_camiones": camiones_b_detalle
+            },
+            "ahorro": {
+                "camiones_menos": ahorro_camiones,
+                "diesel_ahorrado_lts": ahorro_diesel,
+                "ahorro_monetario_diario_mxn": ahorro_monetario_diario,
+                "ahorro_monetario_mensual_mxn": round(ahorro_monetario_diario * 22, 2),  # 22 días hábiles
+                "reduccion_emisiones_co2_kg": round(ahorro_diesel * 2.68, 2)  # 2.68 kg CO2 por litro diésel
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error en simulación de optimización: {e}")
+
 @app.get("/api/vw/reportes")
 def get_reportes_historicos(filtro: str = "mensual"):
     """
