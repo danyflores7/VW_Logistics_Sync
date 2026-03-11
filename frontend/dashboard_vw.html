@@ -166,73 +166,55 @@
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 space-y-6">
+                    <!-- Gráfica Llenos -->
                     <div
                         class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div class="flex items-center justify-between mb-8">
                             <div>
-                                <h4 class="font-bold text-lg">Cumplimiento por Ventana JIT</h4>
-                                <p class="text-sm text-slate-500">Rendimiento en tiempo real por franja horaria</p>
+                                <h4 class="font-bold text-lg">Cumplimiento por Ventana JIT (Empaques Llenos)</h4>
+                                <p class="text-sm text-slate-500">Cobertura de la demanda en planta (Meta = 100%)</p>
                             </div>
                             <div class="flex gap-2">
-                                <div class="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
-                                    id="legend-actual" onclick="toggleLegendJIT('actual')">
-                                    <span class="size-3 rounded-full bg-primary" id="color-actual"></span>
-                                    <span class="text-xs font-medium" id="text-actual">Actual</span>
+                                <div class="legend-actual flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onclick="toggleLegendJIT('actual')">
+                                    <span class="size-3 rounded-full bg-primary"></span>
+                                    <span class="text-xs font-medium">Actual</span>
                                 </div>
-                                <div class="flex items-center gap-1 ml-2 cursor-pointer hover:opacity-80 transition-opacity"
-                                    id="legend-meta" onclick="toggleLegendJIT('meta')">
-                                    <span class="size-3 rounded-full bg-slate-200 dark:bg-slate-700"
-                                        id="color-meta"></span>
-                                    <span class="text-xs font-medium" id="text-meta">Meta</span>
+                                <div class="legend-meta flex items-center gap-1 ml-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onclick="toggleLegendJIT('meta')">
+                                    <span class="size-3 rounded-full bg-primary"></span>
+                                    <span class="text-xs font-medium">Meta</span>
                                 </div>
                             </div>
                         </div>
-                        <div id="grafica-jit-container"
+                        <div id="grafica-jit-llenos-container"
                             class="h-64 flex items-end justify-between px-4 pb-2 border-b border-slate-100 dark:border-slate-800 relative">
-                            <div
-                                class="absolute inset-0 flex flex-col justify-between py-2 pointer-events-none opacity-10">
-                                <div class="border-t border-slate-900 w-full"></div>
-                                <div class="border-t border-slate-900 w-full"></div>
-                                <div class="border-t border-slate-900 w-full"></div>
-                                <div class="border-t border-slate-900 w-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfica Vacios -->
+                    <div
+                        class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mt-6">
+                        <div class="flex items-center justify-between mb-8">
+                            <div>
+                                <h4 class="font-bold text-lg">Cumplimiento por Ventana JIT (Empaques Vacíos)</h4>
+                                <p class="text-sm text-slate-500">Retorno de vacíos al proveedor (Meta = 100%)</p>
                             </div>
-                            <div class="flex flex-col items-center gap-2 w-1/4 group">
-                                <div class="relative w-full flex justify-center items-end h-56">
-                                    <div class="bg-slate-100 dark:bg-slate-800 w-16 absolute h-full rounded-t-lg"></div>
-                                    <div
-                                        class="bg-primary w-16 h-[85%] rounded-t-lg z-10 transition-all group-hover:bg-primary/80">
-                                    </div>
-                                    <span class="absolute -top-6 text-xs font-bold text-primary">85%</span>
+                            <div class="flex gap-2">
+                                <div class="legend-actual flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onclick="toggleLegendJIT('actual')">
+                                    <span class="size-3 rounded-full bg-primary"></span>
+                                    <span class="text-xs font-medium">Actual</span>
                                 </div>
-                                <span class="text-xs font-bold text-slate-500">06:00</span>
-                            </div>
-                            <div class="flex flex-col items-center gap-2 w-1/4 group">
-                                <div class="relative w-full flex justify-center items-end h-56">
-                                    <div class="bg-slate-100 dark:bg-slate-800 w-16 absolute h-full rounded-t-lg"></div>
-                                    <div
-                                        class="bg-primary w-16 h-[92%] rounded-t-lg z-10 transition-all group-hover:bg-primary/80">
-                                    </div>
-                                    <span class="absolute -top-6 text-xs font-bold text-primary">92%</span>
+                                <div class="legend-meta flex items-center gap-1 ml-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onclick="toggleLegendJIT('meta')">
+                                    <span class="size-3 rounded-full bg-primary"></span>
+                                    <span class="text-xs font-medium">Meta</span>
                                 </div>
-                                <span class="text-xs font-bold text-slate-500">08:20</span>
                             </div>
-                            <div class="flex flex-col items-center gap-2 w-1/4 group">
-                                <div class="relative w-full flex justify-center items-end h-56">
-                                    <div class="bg-slate-100 dark:bg-slate-800 w-16 absolute h-full rounded-t-lg"></div>
-                                    <div
-                                        class="bg-primary w-16 h-[78%] rounded-t-lg z-10 transition-all group-hover:bg-primary/80">
-                                    </div>
-                                    <span class="absolute -top-6 text-xs font-bold text-primary">78%</span>
-                                </div>
-                                <span class="text-xs font-bold text-slate-500">10:40</span>
-                            </div>
-                            <div class="flex flex-col items-center gap-2 w-1/4 group opacity-40">
-                                <div class="relative w-full flex justify-center items-end h-56">
-                                    <div class="bg-slate-100 dark:bg-slate-800 w-16 absolute h-full rounded-t-lg"></div>
-                                    <div class="bg-slate-300 w-16 h-0 rounded-t-lg z-10"></div>
-                                </div>
-                                <span class="text-xs font-bold text-slate-500">13:00</span>
-                            </div>
+                        </div>
+                        <div id="grafica-jit-vacias-container"
+                            class="h-64 flex items-end justify-between px-4 pb-2 border-b border-slate-100 dark:border-slate-800 relative">
                         </div>
                     </div>
                 </div>
@@ -496,7 +478,7 @@
                     }
 
                     // --- B. Gráfica JIT ---
-                    if (graficaContainer && data.grafica_jit) {
+                    if (data.grafica_jit) {
                         window.lastGraficaJIT = data.grafica_jit;
                         if (window.renderGraficaJIT) window.renderGraficaJIT();
                     }
@@ -657,22 +639,25 @@
             window.showActual = true;
             window.showMeta = true;
 
-            window.toggleLegendJIT = function (dataset) {
-                if (dataset === 'actual') {
-                    window.showActual = !window.showActual;
-                    const el = document.getElementById('legend-actual');
-                    if (el) el.style.opacity = window.showActual ? '1' : '0.4';
-                } else if (dataset === 'meta') {
+            window.toggleLegendJIT = function (type) {
+                if (type === 'meta') {
                     window.showMeta = !window.showMeta;
-                    const el = document.getElementById('legend-meta');
-                    if (el) el.style.opacity = window.showMeta ? '1' : '0.4';
+                    document.querySelectorAll('.legend-meta').forEach(el => {
+                        window.showMeta ? el.classList.remove('opacity-40') : el.classList.add('opacity-40');
+                    });
+                } else if (type === 'actual') {
+                    window.showActual = !window.showActual;
+                    document.querySelectorAll('.legend-actual').forEach(el => {
+                        window.showActual ? el.classList.remove('opacity-40') : el.classList.add('opacity-40');
+                    });
                 }
                 if (window.renderGraficaJIT) window.renderGraficaJIT();
             };
 
             window.renderGraficaJIT = function () {
-                const graficaContainer = document.getElementById('grafica-jit-container');
-                if (!graficaContainer || !window.lastGraficaJIT) return;
+                const graficaContainerLlenos = document.getElementById('grafica-jit-llenos-container');
+                const graficaContainerVacias = document.getElementById('grafica-jit-vacias-container');
+                if (!graficaContainerLlenos || !graficaContainerVacias || !window.lastGraficaJIT) return;
 
                 // Mantenemos las guias del render
                 const backgroundGuides = `
@@ -684,7 +669,8 @@
                     </div>
                 `;
 
-                let htmlContent = backgroundGuides;
+                let htmlContentLlenos = backgroundGuides;
+                let htmlContentVacias = backgroundGuides;
                 const numVentanas = window.lastGraficaJIT.length;
                 const widthClass = numVentanas > 0 ? `w-[${Math.floor(100 / numVentanas)}%]` : 'w-1/4';
 
@@ -693,53 +679,59 @@
                     const displayMeta = window.showMeta ? 'flex' : 'none';
                     const displayActual = window.showActual ? 'flex' : 'none';
 
-                    // Fallback to avoid undefined errors if backend still returning old data structure
-                    const metaVal = item.porcentaje_meta !== undefined ? item.porcentaje_meta : item.porcentaje || 0;
-                    const realVal = item.porcentaje_real !== undefined ? item.porcentaje_real : item.porcentaje || 0;
+                    // Fallback para meta
+                    const metaVal = item.porcentaje_meta !== undefined ? item.porcentaje_meta : 100;
 
-                    // --- LÓGICA DE COLOR SEMÁFORO PARA LA BARRA ACTUAL ---
-                    let bgBarActual = 'bg-slate-300';
-                    let textActual = item.past ? 'text-slate-500' : 'text-slate-400';
-
-                    const calcKPI = item.kpi_viaje !== undefined ? item.kpi_viaje : 100;
                     const tieneDatos = item.tiene_datos !== undefined ? item.tiene_datos : item.past;
 
-                    if (tieneDatos) { // Si hay información confirmada
-                        if (calcKPI > 75) {
-                            bgBarActual = 'bg-green-500';
-                            textActual = 'text-green-600';
-                        } else if (calcKPI > 50) {
-                            bgBarActual = 'bg-yellow-400';
-                            textActual = 'text-yellow-600';
-                        } else {
-                            bgBarActual = 'bg-red-500';
-                            textActual = 'text-red-600';
-                        }
-                    } else if (!item.past) {
-                        // Viajes futuros (sin empezar) se pintan del color azul por default de UI
-                        bgBarActual = 'bg-primary';
-                        textActual = 'text-primary';
-                    }
+                    // helper para renderizar una barra
+                    const renderBarItem = (realValKey, calcKPIKey) => {
+                        const realVal = item[realValKey] !== undefined ? item[realValKey] : 0;
+                        const calcKPI = item[calcKPIKey] !== undefined ? item[calcKPIKey] : 100;
 
-                    htmlContent += `
-                    <div class="flex flex-col items-center gap-2 ${widthClass} group ${opacityClass} z-10" style="width: 10%;">
-                        <div class="relative w-3/4 max-w-[80px] flex justify-center items-end h-56 gap-1">
-                            <!-- Barra Meta -->
-                            <div class="flex-col justify-end items-center w-1/2" style="display: ${displayMeta}; height: 100%;">
-                                <span class="text-[10px] font-bold text-primary mb-1 w-full text-center block">${Math.round(metaVal)}%</span>
-                                <div class="bg-primary w-full rounded-t-sm transition-all shadow-sm" style="height: ${metaVal}%"></div>
+                        let bgBarActual = 'bg-slate-300';
+                        let textActual = item.past ? 'text-slate-500' : 'text-slate-400';
+
+                        if (tieneDatos) {
+                            if (calcKPI > 75) {
+                                bgBarActual = 'bg-green-500';
+                                textActual = 'text-green-600';
+                            } else if (calcKPI > 50) {
+                                bgBarActual = 'bg-yellow-400';
+                                textActual = 'text-yellow-600';
+                            } else {
+                                bgBarActual = 'bg-red-500';
+                                textActual = 'text-red-600';
+                            }
+                        } else if (!item.past) {
+                            bgBarActual = 'bg-primary';
+                            textActual = 'text-primary';
+                        }
+
+                        return `
+                        <div class="flex flex-col items-center gap-2 ${widthClass} group ${opacityClass} z-10" style="width: 10%;">
+                            <div class="relative w-3/4 max-w-[80px] flex justify-center items-end h-56 gap-1">
+                                <!-- Barra Meta -->
+                                <div class="flex-col justify-end items-center w-1/2" style="display: ${displayMeta}; height: 100%;">
+                                    <span class="text-[10px] font-bold text-primary mb-1 w-full text-center block">${Math.round(metaVal)}%</span>
+                                    <div class="bg-primary w-full rounded-t-sm transition-all shadow-sm" style="height: ${metaVal}%"></div>
+                                </div>
+                                <!-- Barra Actual -->
+                                <div class="flex-col justify-end items-center w-1/2" style="display: ${displayActual}; height: 100%;">
+                                    <span class="text-[10px] font-bold ${textActual} mb-1 w-full text-center block">${Math.round(realVal)}%</span>
+                                    <div class="${bgBarActual} w-full rounded-t-sm z-20 transition-all hover:opacity-80 shadow-sm" style="height: ${realVal}%"></div>
+                                </div>
                             </div>
-                            <!-- Barra Actual -->
-                            <div class="flex-col justify-end items-center w-1/2" style="display: ${displayActual}; height: 100%;">
-                                <span class="text-[10px] font-bold ${textActual} mb-1 w-full text-center block">${Math.round(realVal)}%</span>
-                                <div class="${bgBarActual} w-full rounded-t-sm z-20 transition-all hover:opacity-80 shadow-sm" style="height: ${realVal}%"></div>
-                            </div>
-                        </div>
-                        <span class="text-xs font-bold text-slate-500">${item.hora}</span>
-                    </div>`;
+                            <span class="text-xs font-bold text-slate-500">${item.hora}</span>
+                        </div>`;
+                    };
+
+                    htmlContentLlenos += renderBarItem('porcentaje_real_llenas', 'kpi_viaje');
+                    htmlContentVacias += renderBarItem('porcentaje_real_vacias', 'kpi_viaje_vacias');
                 });
 
-                graficaContainer.innerHTML = htmlContent;
+                graficaContainerLlenos.innerHTML = htmlContentLlenos;
+                graficaContainerVacias.innerHTML = htmlContentVacias;
             };
 
             // Definir función colapsable global
