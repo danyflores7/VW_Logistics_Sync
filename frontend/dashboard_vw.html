@@ -445,32 +445,56 @@
                     if (kpiPiezas) kpiPiezas.textContent = data.kpis.total_piezas.toLocaleString();
                     if (kpiOcupacion) kpiOcupacion.textContent = data.kpis.ocupacion_dhl + "%";
                     if (kpiCumplimiento) {
-                        const globalPct = parseFloat(data.kpis.cumplimiento_global) || 0;
-                        kpiCumplimiento.textContent = globalPct + "%";
-                        kpiCumplimiento.className = `text-2xl font-bold ${globalPct > 75 ? 'text-green-600' : (globalPct > 50 ? 'text-yellow-600' : 'text-red-600')}`;
+                        // Comprobar si es un futuro
+                        const dateSelector = document.getElementById('selector-fecha');
+                        const todayDateStr = new Date().toISOString().split('T')[0];
+                        const isFuture = dateSelector && dateSelector.value && dateSelector.value > todayDateStr;
+
+                        if (isFuture) {
+                            kpiCumplimiento.textContent = "--%";
+                            kpiCumplimiento.className = "text-2xl font-bold text-slate-400";
+                        } else {
+                            const globalPct = parseFloat(data.kpis.cumplimiento_global) || 0;
+                            kpiCumplimiento.textContent = globalPct + "%";
+                            kpiCumplimiento.className = `text-2xl font-bold ${globalPct > 75 ? 'text-green-600' : (globalPct > 50 ? 'text-yellow-600' : 'text-red-600')}`;
+                        }
                     }
 
                     const tmeBreakdownTarget = document.getElementById('kpi-tme-breakdown');
                     if (tmeBreakdownTarget && data.kpis.por_tme) {
                         let htmlStr = `<p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Desglose x TME</p>`;
+
+                        const dateSelector = document.getElementById('selector-fecha');
+                        const todayDateStr = new Date().toISOString().split('T')[0];
+                        const isFuture = dateSelector && dateSelector.value && dateSelector.value > todayDateStr;
+
                         for (const [tme, metrics] of Object.entries(data.kpis.por_tme)) {
                             const val = metrics.porcentaje;
                             let colorClass = 'text-red-600';
                             let barColor = 'bg-red-500';
-                            if (val > 75) {
-                                colorClass = 'text-green-600';
-                                barColor = 'bg-green-500';
-                            } else if (val > 50) {
-                                colorClass = 'text-yellow-600';
-                                barColor = 'bg-yellow-400';
+                            let displayVal = `${metrics.porcentaje}%`;
+
+                            if (isFuture) {
+                                colorClass = 'text-slate-400';
+                                barColor = 'bg-slate-200 dark:bg-slate-700';
+                                displayVal = '--%';
+                            } else {
+                                if (val > 75) {
+                                    colorClass = 'text-green-600';
+                                    barColor = 'bg-green-500';
+                                } else if (val > 50) {
+                                    colorClass = 'text-yellow-600';
+                                    barColor = 'bg-yellow-400';
+                                }
                             }
+
                             htmlStr += `
                                 <div class="flex items-center justify-between text-[10px] w-full mt-1">
                                     <span class="font-bold text-slate-600 dark:text-slate-300 w-1/4 truncate uppercase" title="${tme}">${tme}</span>
                                     <div class="flex-1 mx-2 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden flex items-center shadow-inner">
-                                        <div class="h-full rounded-full ${barColor} shadow-sm transition-all duration-1000" style="width: ${metrics.porcentaje}%"></div>
+                                        <div class="h-full rounded-full ${barColor} shadow-sm transition-all duration-1000" style="width: ${isFuture ? '0' : metrics.porcentaje}%"></div>
                                     </div>
-                                    <span class="font-bold ${colorClass} w-[30px] text-right">${metrics.porcentaje}%</span>
+                                    <span class="font-bold ${colorClass} w-[30px] text-right">${displayVal}</span>
                                 </div>
                             `;
                         }
