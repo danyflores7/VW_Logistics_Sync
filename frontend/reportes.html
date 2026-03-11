@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1e0052",
+                        "background-light": "#f6f5f8",
+                        "background-dark": "#160f23",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <title>VW Reportes: Huella Logística</title>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+    <div class="relative flex flex-col min-h-screen">
+        <header
+            class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2 text-primary dark:text-white">
+                    <div class="size-8 flex items-center justify-center bg-primary rounded-lg text-white">
+                        <span class="material-symbols-outlined">directions_car</span>
+                    </div>
+                    <h1 class="text-xl font-bold tracking-tight">VW Logistics</h1>
+                </div>
+                <nav class="hidden md:flex items-center gap-6 ml-4">
+                    <a class="text-slate-500 hover:text-primary transition-colors"
+                        href="dashboard_vw.html">Dashboard</a>
+                    <a class="text-slate-500 hover:text-primary transition-colors" href="monitoreo_jit.html">Monitoreo
+                        JIT</a>
+                    <a class="text-primary font-semibold border-b-2 border-primary pb-1"
+                        href="reportes.html">Reportes</a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs font-bold text-primary dark:text-blue-400 uppercase tracking-wider">
+                            Controlador Planta</p>
+                        <p class="text-sm font-medium">Puebla - Nave 1</p>
+                    </div>
+                    <div class="relative">
+                        <div class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-primary/20"
+                            data-alt="User profile placeholder">
+                            <span class="material-symbols-outlined text-primary">person</span>
+                        </div>
+                        <div
+                            class="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+            <div
+                class="flex justify-between items-center bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary text-3xl">monitoring</span>
+                        Reportes de Eficiencia Logística
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">Evaluación de Cumplimiento e Impacto de Diésel Desperdiciado
+                    </p>
+                </div>
+                <div class="flex bg-slate-100 p-1 rounded-lg">
+                    <button
+                        class="filter-btn active px-6 py-2 rounded-md text-sm font-bold bg-white text-primary shadow-sm"
+                        data-filter="diario">
+                        Diario
+                    </button>
+                    <button class="filter-btn px-6 py-2 rounded-md text-sm font-bold text-slate-500 hover:text-primary"
+                        data-filter="semanal">
+                        Semanal
+                    </button>
+                    <button class="filter-btn px-6 py-2 rounded-md text-sm font-bold text-slate-500 hover:text-primary"
+                        data-filter="mensual">
+                        Mensual
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- KPI: CUMPLIMIENTO -->
+                <div
+                    class="bg-gradient-to-br from-blue-50 to-white p-6 rounded-2xl shadow-sm border border-blue-100 relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-4">
+                        <p class="text-sm font-bold text-blue-600 uppercase">Cumplimiento JIT</p>
+                        <span class="material-symbols-outlined text-blue-300">verified</span>
+                    </div>
+                    <div class="flex items-end gap-3 z-10 relative">
+                        <h3 id="kpi-cumplimiento" class="text-5xl font-black text-blue-800">--%</h3>
+                    </div>
+                    <p class="text-xs text-blue-500 mt-3 font-medium">Entregas a tiempo vs. Planificadas</p>
+                </div>
+
+                <!-- KPI: RETRASOS -->
+                <div
+                    class="bg-gradient-to-br from-amber-50 to-white p-6 rounded-2xl shadow-sm border border-amber-100 relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-4">
+                        <p class="text-sm font-bold text-amber-600 uppercase">Tiempo Perdido (Acu.)</p>
+                        <span class="material-symbols-outlined text-amber-300">timer</span>
+                    </div>
+                    <div class="flex items-end gap-3 z-10 relative">
+                        <h3 id="kpi-retraso" class="text-5xl font-black text-amber-800">-- <span
+                                class="text-lg">min</span></h3>
+                    </div>
+                    <p class="text-xs text-amber-500 mt-3 font-medium">Suma de retrasos logísticos</p>
+                </div>
+
+                <!-- KPI: DIESEL DESPERDICIADO -->
+                <div
+                    class="bg-gradient-to-br from-red-50 to-white p-6 rounded-2xl shadow-sm border border-red-200 relative overflow-hidden group">
+                    <div class="absolute -right-4 -bottom-4 opacity-5">
+                        <span class="material-symbols-outlined" style="font-size: 150px;">local_gas_station</span>
+                    </div>
+                    <div class="flex justify-between items-start mb-4 relative z-10">
+                        <p class="text-sm font-bold text-red-600 uppercase">Diésel Desperdiciado</p>
+                        <span class="material-symbols-outlined text-red-400">local_gas_station</span>
+                    </div>
+                    <div class="flex items-end gap-3 z-10 relative">
+                        <h3 id="kpi-diesel" class="text-5xl font-black text-red-700">-- <span
+                                class="text-lg">Litros</span></h3>
+                    </div>
+                    <p class="text-xs text-red-500 mt-3 font-medium">Por viajes en vacío e ineficiencias (15L por viaje)
+                    </p>
+                </div>
+            </div>
+
+            <!-- TABLA/GRÁFICA DIÉSEL -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-red-500"
+                        style="font-variation-settings: 'FILL' 1;">trending_up</span>
+                    Tendencia de Desperdicio de Diésel
+                </h3>
+
+                <div id="chart-container"
+                    class="w-full flex items-end gap-2 h-64 border-b border-slate-100 pb-2 relative">
+                    <!-- Barras dinámicas inyectadas por JS -->
+                    <div class="absolute inset-0 flex items-center justify-center bg-white/50 z-10" id="chart-loader">
+                        <p class="text-slate-500 font-bold animate-pulse">Cargando datos...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btns = document.querySelectorAll('.filter-btn');
+            let currentFilter = 'diario';
+
+            btns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // Update Active Styles
+                    btns.forEach(b => {
+                        b.classList.remove('bg-white', 'text-primary', 'shadow-sm', 'active');
+                        b.classList.add('text-slate-500');
+                    });
+                    const target = e.currentTarget;
+                    target.classList.add('bg-white', 'text-primary', 'shadow-sm', 'active');
+                    target.classList.remove('text-slate-500');
+
+                    currentFilter = target.getAttribute('data-filter');
+                    loadReport(currentFilter);
+                });
+            });
+
+            async function loadReport(filtro) {
+                const container = document.getElementById('chart-container');
+                container.innerHTML = `<div class="absolute inset-0 flex items-center justify-center bg-white/50 z-10" id="chart-loader">
+                        <p class="text-slate-500 font-bold animate-pulse">Cargando datos...</p>
+                    </div>`;
+
+                try {
+                    const res = await fetch(`/api/vw/reportes?filtro=${filtro}`);
+                    const data = await res.json();
+
+                    document.getElementById('kpi-cumplimiento').innerText = `${data.kpis.cumplimiento_pct}%`;
+                    document.getElementById('kpi-retraso').innerHTML = `${data.kpis.minutos_retraso} <span class="text-lg font-bold">min</span>`;
+                    document.getElementById('kpi-diesel').innerHTML = `${data.kpis.diesel_desperdiciado} <span class="text-lg font-bold text-red-500">Lts</span>`;
+
+                    renderChart(data.grafica_diesel);
+                } catch (err) {
+                    console.error("Error fetching report:", err);
+                }
+            }
+
+            function renderChart(dataArr) {
+                const container = document.getElementById('chart-container');
+                container.innerHTML = '';
+
+                if (dataArr.length === 0) {
+                    container.innerHTML = `<p class="w-full text-center text-slate-400 mt-10">No hay datos</p>`;
+                    return;
+                }
+
+                // Encontrar el max para normalizar (minimo 15L para saltos visuales)
+                const maxVal = Math.max(...dataArr.map(d => d.desperdicioLts), 15);
+
+                dataArr.forEach(item => {
+                    const rawPct = (item.desperdicioLts / maxVal) * 100;
+                    const pct = Math.max(rawPct, 2); // al menos visible
+
+                    const barWrapper = document.createElement('div');
+                    barWrapper.className = "flex-1 flex flex-col items-center justify-end h-full gap-2 group relative";
+
+                    // Tooltip
+                    const tooltip = document.createElement('div');
+                    tooltip.className = "absolute -top-10 bg-slate-800 text-white text-xs font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none whitespace-nowrap";
+                    tooltip.innerHTML = `${item.desperdicioLts} Lts`;
+
+                    const bar = document.createElement('div');
+                    bar.className = "w-full bg-red-500 hover:bg-red-600 rounded-t transition-all cursor-pointer";
+                    bar.style.height = `${pct}%`;
+
+                    const label = document.createElement('span');
+                    label.className = "text-[10px] sm:text-xs text-slate-400 font-medium truncate w-full text-center mt-2 border-t border-slate-100 pt-1";
+                    label.innerText = item.fecha;
+
+                    barWrapper.appendChild(tooltip);
+                    barWrapper.appendChild(bar);
+                    barWrapper.appendChild(label);
+                    container.appendChild(barWrapper);
+                });
+            }
+
+            // Inicial carga
+            loadReport(currentFilter);
+        });
+    </script>
+</body>
+
+</html>

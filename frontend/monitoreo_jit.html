@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1e0052",
+                        "background-light": "#f6f5f8",
+                        "background-dark": "#160f23",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <title>Monitoreo JIT - VW Logistics</title>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+    <div class="relative flex flex-col min-h-screen">
+        <header
+            class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2 text-primary dark:text-white">
+                    <div class="size-8 flex items-center justify-center bg-primary rounded-lg text-white">
+                        <span class="material-symbols-outlined">directions_car</span>
+                    </div>
+                    <h1 class="text-xl font-bold tracking-tight">VW Logistics</h1>
+                </div>
+                <nav class="hidden md:flex items-center gap-6 ml-4">
+                    <a class="text-slate-500 hover:text-primary transition-colors"
+                        href="dashboard_vw.html">Dashboard</a>
+                    <a class="text-primary font-semibold border-b-2 border-primary pb-1"
+                        href="monitoreo_jit.html">Monitoreo JIT</a>
+                    <a class="text-slate-500 hover:text-primary transition-colors" href="reportes.html">Reportes</a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-4">
+                <div
+                    class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-1.5 gap-2 border border-slate-200 dark:border-slate-700">
+                    <span class="material-symbols-outlined text-slate-500 text-sm">calendar_today</span>
+                    <input type="date" id="selector-fecha"
+                        class="bg-transparent text-sm font-medium border-none outline-none focus:ring-0 w-[120px]" />
+                </div>
+                <div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs font-bold text-primary dark:text-blue-400 uppercase tracking-wider">
+                            Controlador Planta</p>
+                        <p class="text-sm font-medium">Puebla - Nave 1</p>
+                    </div>
+                    <div class="relative">
+                        <div class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-primary/20"
+                            data-alt="User profile placeholder">
+                            <span class="material-symbols-outlined text-primary">person</span>
+                        </div>
+                        <div
+                            class="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main class="flex-1 p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+
+            <!-- ========== SECCIÓN: VIAJES JIT EN VIVO ========== -->
+            <div
+                class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <h4 class="font-bold">Viajes JIT en Vivo</h4>
+                    <div class="flex gap-2">
+                        <button
+                            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-lg">
+                            <span class="material-symbols-outlined text-sm">filter_list</span> Filtrar
+                        </button>
+                        <button
+                            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 rounded-lg">
+                            <span class="material-symbols-outlined text-sm">download</span> Exportar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- MAPA GPS -->
+                <div class="px-6 pb-4 pt-4 border-b border-slate-100 dark:border-slate-800">
+                    <div id="mapa-gps"
+                        class="w-full h-80 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm z-0 relative">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr
+                                class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
+                                <th class="px-6 py-4">Ventana JIT</th>
+                                <th class="px-6 py-4">Proveedor</th>
+                                <th class="px-6 py-4">No. Parte</th>
+                                <th class="px-6 py-4">Cajas a Enviar (Llenas)</th>
+                                <th class="px-6 py-4">Estado</th>
+                                <th class="px-6 py-4">Zona / TME</th>
+                                <th class="px-6 py-4">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-viajes-jit" class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-slate-400">Cargando viajes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========== SECCIÓN: NIVELADO DE RETORNOS (SALIDA VW) ========== -->
+            <div
+                class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                        <h4 class="font-bold flex items-center gap-2"><span
+                                class="material-symbols-outlined text-primary">local_shipping</span> Nivelado de
+                            Retornos (Salida VW)</h4>
+                        <p class="text-xs text-slate-500">Distribución de cajas colapsadas regresando al proveedor
+                            en 10 ventanas logísticas
+                        </p>
+                    </div>
+                </div>
+                <div class="p-6" id="dhl-vacios-container">
+                    <p class="text-slate-400 text-sm text-center">Cargando ventanas logísticas de DHL...</p>
+                </div>
+            </div>
+
+        </main>
+        <footer
+            class="mt-auto p-6 text-center text-xs text-slate-400 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <p>© 2024 Volkswagen Logistics Control System | Planta Puebla | V 2.4.1</p>
+        </footer>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const tablaViajes = document.getElementById('tabla-viajes-jit');
+
+            const dateInputInit = document.getElementById('selector-fecha');
+            if (dateInputInit && !dateInputInit.value) {
+                const today = new Date();
+                const dd = String(today.getDate()).padStart(2, '0');
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const yyyy = today.getFullYear();
+                dateInputInit.value = `${yyyy}-${mm}-${dd}`;
+            }
+
+            // --- INICIALIZACIÓN LEAFLET MAP ---
+            const mapContainer = document.getElementById('mapa-gps');
+            let map;
+            let markerGps;
+            if (mapContainer) {
+                map = L.map('mapa-gps').setView([19.1205, -98.2433], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+
+                const truckIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="background-color: #1e0052; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">local_shipping</span>
+                           </div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+
+                markerGps = L.marker([19.1205, -98.2433], { icon: truckIcon }).addTo(map);
+                markerGps.bindPopup("<b>Unidad en Tránsito</b>").openPopup();
+            }
+
+            // --- FUNCIÓN PRINCIPAL: CARGAR TABLA DE VIAJES ---
+            async function cargarViajesJIT() {
+                try {
+                    console.log("Cargando viajes JIT en vivo...");
+                    let fetchUrl = '/api/vw/dashboard-data';
+                    const dateSelector = document.getElementById('selector-fecha');
+                    if (dateSelector && dateSelector.value) {
+                        try {
+                            const [year, month, day] = dateSelector.value.split('-');
+                            const formattedDate = `${day}/${month}/${year}`;
+                            fetchUrl += `?fecha=${encodeURIComponent(formattedDate)}`;
+                        } catch (e) {
+                            console.error("Error formatting date", e);
+                        }
+                    }
+                    const response = await fetch(fetchUrl);
+
+                    if (!response.ok) {
+                        throw new Error('Fallo al obtener datos consolidados');
+                    }
+                    const data = await response.json();
+
+                    // --- Tabla Viajes en Vivo ---
+                    if (tablaViajes && data.viajes_vivo) {
+                        tablaViajes.innerHTML = '';
+                        if (data.viajes_vivo.length === 0) {
+                            tablaViajes.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">No hay viajes registrados. Sube el layout de demanda.</td></tr>`;
+                        } else {
+                            const getSemaforoClasses = (pct) => {
+                                if (pct > 75) return { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', border: 'border-green-200 dark:border-green-800' };
+                                if (pct > 50) return { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-400', border: 'border-yellow-200 dark:border-yellow-800' };
+                                return { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', border: 'border-red-200 dark:border-red-800' };
+                            };
+
+                            const ventanasAgrupadas = {};
+                            data.viajes_vivo.forEach(v => {
+                                if (!ventanasAgrupadas[v.hora]) ventanasAgrupadas[v.hora] = [];
+                                ventanasAgrupadas[v.hora].push(v);
+                            });
+
+                            for (const [hora, viajes] of Object.entries(ventanasAgrupadas)) {
+                                const horaId = hora.replace(':', '');
+
+                                if (!window.ventanasDesplegadas) window.ventanasDesplegadas = new Set();
+                                const isExpanded = window.ventanasDesplegadas.has(horaId);
+                                const iconText = isExpanded ? 'expand_more' : 'chevron_right';
+                                const hiddenClass = isExpanded ? '' : 'hidden';
+
+                                let kpiGlobalStr = '';
+                                if (viajes[0] && viajes[0].kpi_viaje > 0) {
+                                    const semaforo = getSemaforoClasses(viajes[0].kpi_viaje);
+                                    kpiGlobalStr = `<span class="${semaforo.bg} ${semaforo.text} font-bold px-2 py-0.5 rounded text-[10px] ml-2 border ${semaforo.border}">CUMPLIMIENTO: <span class="font-black">${viajes[0].kpi_viaje}%</span></span>`;
+                                }
+
+                                let tmesStr = '';
+                                if (viajes[0] && viajes[0].kpi_detail && viajes[0].kpi_detail.tmes) {
+                                    tmesStr = Object.entries(viajes[0].kpi_detail.tmes).map(([tme, m]) => {
+                                        const sm = getSemaforoClasses(m.porcentaje);
+                                        return `<span class="px-1.5 py-0.5 rounded text-[9px] border ${sm.border} ${sm.bg} ${sm.text} lowercase"><span class="uppercase font-bold">${tme}</span>: <span class="font-black">${m.porcentaje}%</span> <span class="opacity-70">(${m.real}/${m.esperado})</span></span>`;
+                                    }).join('');
+                                }
+
+                                tablaViajes.innerHTML += `
+                                <tr class="bg-slate-100 dark:bg-slate-800 cursor-pointer hover:bg-slate-200 transition-colors" onclick="toggleVentana('${horaId}')">
+                                    <td colspan="7" class="px-6 py-2 text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest border-l-4 border-primary flex items-center justify-between">
+                                        <div class="flex items-center flex-wrap gap-2">
+                                            <span class="material-symbols-outlined text-sm align-middle mr-1">schedule</span> Ventana JIT: <span class="text-primary dark:text-blue-400 font-bold">${hora}</span>
+                                            <span class="text-slate-500 font-medium ml-2 text-[10px]">(${viajes.length} Viajes)</span>
+                                            ${kpiGlobalStr}
+                                            <div class="ml-4 space-x-1 flex flex-wrap">
+                                                ${tmesStr}
+                                            </div>
+                                        </div>
+                                        <span class="material-symbols-outlined text-slate-500" id="icon-${horaId}">${iconText}</span>
+                                    </td>
+                                </tr>`;
+
+                                let rowsHtml = '';
+                                viajes.forEach(viaje => {
+                                    let textColor = 'text-slate-500';
+                                    let bgColor = 'bg-slate-500';
+                                    let label = 'Pendiente';
+                                    let anim = '';
+                                    let opacityClass = '';
+
+                                    if (viaje.estado === 'En_Transito' || viaje.estado === 'Transito_Hacia_VW') {
+                                        textColor = 'text-blue-600'; bgColor = 'bg-blue-600'; label = 'Regresando a VW'; anim = 'animate-pulse';
+                                    } else if (viaje.estado === 'En_Proveedor') {
+                                        textColor = 'text-purple-600'; bgColor = 'bg-purple-600'; label = 'Cargando en AKSYS'; anim = 'animate-pulse';
+                                    } else if (viaje.estado === 'Transito_Hacia_Prov') {
+                                        textColor = 'text-amber-500'; bgColor = 'bg-amber-500'; label = 'Enviando Vacíos'; anim = 'animate-pulse';
+                                    } else if (viaje.estado === 'Completado' || viaje.estado === 'Entregado') {
+                                        textColor = 'text-green-600'; bgColor = 'bg-green-600'; label = 'Completado'; anim = '';
+                                    } else if (viaje.estado === 'Retraso') {
+                                        textColor = 'text-red-600'; bgColor = 'bg-red-600'; label = 'Retraso'; anim = 'animate-pulse';
+                                    }
+
+                                    const isDone = (viaje.estado === 'Completado' || viaje.estado === 'Entregado');
+
+                                    rowsHtml += `
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${opacityClass} row-${horaId} ${hiddenClass}">
+                                        <td class="px-6 py-3 font-bold text-sm ${isDone ? 'line-through text-slate-400 pl-8' : 'pl-8 text-slate-400'}">↳ ${viaje.hora}</td>
+                                        <td class="px-6 py-3 text-sm font-medium flex items-center gap-2"><div class="size-6 bg-slate-200 dark:bg-slate-700 rounded-md flex items-center justify-center text-[10px] font-bold">AK</div> ${viaje.proveedor}</td>
+                                        <td class="px-6 py-3 text-sm font-bold text-slate-700 dark:text-slate-300">PN: ${viaje.noparte}</td>
+                                        <td class="px-6 py-3 font-bold text-primary dark:text-blue-400 text-sm">${viaje.empaques}</td>
+                                        <td class="px-6 py-3">
+                                            <span class="flex items-center gap-1.5 ${textColor} text-xs font-bold shadow-sm">
+                                                <span class="size-2 rounded-full ${bgColor} ${anim}"></span>
+                                                ${label.toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-3 text-xs text-slate-500 font-medium">${viaje.zona_tme}</td>
+                                        <td class="px-6 py-3">
+                                            <button class="text-primary text-xs font-bold hover:underline">Auditar</button>
+                                        </td>
+                                    </tr>`;
+                                });
+                                tablaViajes.innerHTML += rowsHtml;
+                            }
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    if (tablaViajes) tablaViajes.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-red-500 font-bold">No se pudo cargar la demanda en vivo. Asegúrate que la API de FastAPI esté encendida.</td></tr>`;
+                }
+            }
+
+            // Definir función colapsable global
+            window.toggleVentana = function (horaId) {
+                if (!window.ventanasDesplegadas) window.ventanasDesplegadas = new Set();
+                const rows = document.querySelectorAll(`.row-${horaId}`);
+                const icon = document.getElementById(`icon-${horaId}`);
+
+                let isNowExpanded = window.ventanasDesplegadas.has(horaId);
+
+                if (isNowExpanded) {
+                    window.ventanasDesplegadas.delete(horaId);
+                    rows.forEach(row => row.classList.add('hidden'));
+                    if (icon) icon.textContent = 'chevron_right';
+                } else {
+                    window.ventanasDesplegadas.add(horaId);
+                    rows.forEach(row => row.classList.remove('hidden'));
+                    if (icon) icon.textContent = 'expand_more';
+                }
+            };
+
+            // Cargar por primera vez
+            await cargarViajesJIT();
+
+            // Escuchar cambios en el selector de fecha
+            const dateInput = document.getElementById('selector-fecha');
+            if (dateInput) {
+                dateInput.addEventListener('change', async () => {
+                    await cargarViajesJIT();
+                    await cargarRetornosDHL();
+                });
+            }
+
+            // --- WEBSOCKETS EN TIEMPO REAL ---
+            const wsProto = window.location.protocol === "https:" ? "wss://" : "ws://";
+            const ws = new WebSocket(wsProto + window.location.host + "/ws");
+
+            ws.onopen = () => console.log("WebSocket Connect: Monitoreo JIT");
+
+            ws.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                console.log("Broadcast recibido:", data);
+
+                if (data.tipo === 'nueva_demanda') {
+                    console.log("¡Nueva demanda! Refrescando monitoreo...");
+                    await cargarViajesJIT();
+                    await cargarRetornosDHL();
+                    return;
+                }
+
+                if (data.tipo === 'actualizacion_viaje') {
+                    console.log(`¡Viaje actualizado a ${data.estado}! Recargando tabla...`);
+                    await cargarViajesJIT();
+                }
+
+                if (data.tipo === 'gps_update') {
+                    if (typeof markerGps !== 'undefined' && markerGps && typeof map !== 'undefined' && map) {
+                        const newLat = parseFloat(data.lat);
+                        const newLng = parseFloat(data.lng);
+                        if (!isNaN(newLat) && !isNaN(newLng)) {
+                            markerGps.setLatLng([newLat, newLng]);
+                            map.panTo([newLat, newLng]);
+                        }
+                    }
+                }
+            };
+
+            // --- CARGAR RETORNOS DHL ---
+            async function cargarRetornosDHL() {
+                const container = document.getElementById('dhl-vacios-container');
+                try {
+                    const response = await fetch('/api/dhl/retornos-vacios');
+                    if (!response.ok) throw new Error("Fallo api DHL");
+                    const data = await response.json();
+
+                    if (!data.ventanas || data.ventanas.length === 0) {
+                        container.innerHTML = `<p class="text-slate-500 text-sm">No hay retornos programados o demanda cargada.</p>`;
+                        return;
+                    }
+
+                    let contentHtml = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">`;
+
+                    data.ventanas.forEach(ventana => {
+                        let totalEmpaques = 0;
+                        const groupedTME = {};
+                        ventana.partes.forEach(p => {
+                            totalEmpaques += p.vacias_retornar;
+                            const key = p.tipo_empaque;
+                            if (!groupedTME[key]) {
+                                groupedTME[key] = { ...p };
+                            } else {
+                                groupedTME[key].vacias_retornar += p.vacias_retornar;
+                            }
+                        });
+
+                        let partesHTML = Object.values(groupedTME)
+                            .map(p => `<div class="flex justify-between items-center bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-100 dark:border-slate-800">
+                                <div>
+                                    <span class="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Empaque TME: ${p.tipo_empaque}</span>
+                                </div>
+                                <span class="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded font-bold text-[11px]">x${p.vacias_retornar}</span>
+                            </div>`)
+                            .join('');
+
+                        if (!partesHTML) partesHTML = '<p class="text-center italic text-slate-400 py-2 text-xs">Sin empaques a retornar.</p>';
+
+                        const partesJsonEncoded = encodeURIComponent(JSON.stringify(ventana.partes.map(p => ({
+                            noparte: p.noparte,
+                            llenas_enviar: p.vacias_retornar,
+                            w_m: p.w_m,
+                            h_m: p.h_m,
+                            l_m: p.l_m
+                        }))));
+
+                        const oc = ventana.ocupacion_porcentaje;
+                        let barColor = 'bg-primary';
+                        if (oc > 100) barColor = 'bg-red-500';
+
+                        contentHtml += `
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 flex flex-col h-full">
+                            <div class="flex justify-between items-center mb-3">
+                                <h5 class="font-bold text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> ${ventana.hora_ventana}</h5>
+                                <button onclick="window.open3DModal('${partesJsonEncoded}')" class="text-xs bg-primary hover:bg-primary/90 text-white px-2 py-1 rounded shadow-sm flex items-center gap-1 transition-colors">
+                                    <span class="material-symbols-outlined text-[14px]">view_in_ar</span> Simulación
+                                </button>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Ocupación Volumétrica</p>
+                                <div class="flex items-end gap-2 mb-1">
+                                    <h4 class="text-xl font-bold ${oc > 100 ? 'text-red-600' : 'text-slate-800 dark:text-white'}">${oc}%</h4>
+                                </div>
+                                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                                    <div class="${barColor} h-1.5 rounded-full" style="width: ${Math.min(oc, 100)}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <p class="text-[11px] text-slate-700 dark:text-slate-300 font-black"><span class="text-primary">•</span> ${totalEmpaques} colapsados a retornar</p>
+                            </div>
+                            
+                            <div class="mt-auto border-t border-slate-200 dark:border-slate-700 pt-3">
+                                <div class="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                                    ${partesHTML}
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+
+                    contentHtml += `</div>`;
+                    container.innerHTML = contentHtml;
+
+                } catch (err) {
+                    console.error("Error retornos DHL", err);
+                    container.innerHTML = `<p class="text-red-500 text-sm">Error al cargar la carga nivelada de DHL: ${err.message}</p>`;
+                }
+            }
+
+            window.cargarRetornosDHL = cargarRetornosDHL;
+            await cargarRetornosDHL();
+
+        });
+
+        // ==========================================
+        // LÓGICA 3D (Simulador)
+        // ==========================================
+        const BIN_L = 6500;
+        const BIN_W = 2500;
+        const BIN_H = 2400;
+
+        let scene, camera, renderer, controls;
+        let boxMeshes = [];
+        let is3DInit = false;
+
+        window.open3DModal = function (partesJsonEncoded) {
+            document.getElementById('modal-3d').classList.remove('hidden');
+            const partes = JSON.parse(decodeURIComponent(partesJsonEncoded));
+
+            if (!is3DInit) {
+                init3D();
+                animate();
+                is3DInit = true;
+            }
+            setTimeout(onWindowResize, 100);
+
+            packAndDraw(partes);
+        }
+
+        window.close3DModal = function () {
+            document.getElementById('modal-3d').classList.add('hidden');
+        }
+
+        function packAndDraw(partes) {
+            let boxesToPack = [];
+            partes.forEach(p => {
+                const color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                const w = Math.round((p.w_m || 0.6) * 1000);
+                const h = Math.round((p.h_m || 0.6) * 1000);
+                const l = Math.round((p.l_m || 0.8) * 1000);
+
+                for (let i = 0; i < p.llenas_enviar; i++) {
+                    boxesToPack.push({
+                        w: w, h: h, l: l,
+                        color: color,
+                        volume: w * h * l
+                    });
+                }
+            });
+
+            boxesToPack.sort((a, b) => b.volume - a.volume);
+
+            let freeSpaces = [{ x: 0, y: 0, z: 0, w: BIN_W, h: BIN_H, l: BIN_L }];
+            let packedItems = [];
+
+            for (let box of boxesToPack) {
+                freeSpaces.sort((a, b) => {
+                    if (a.y !== b.y) return a.y - b.y;
+                    if (a.z !== b.z) return a.z - b.z;
+                    return a.x - b.x;
+                });
+
+                let bestSpaceIdx = -1;
+                for (let i = 0; i < freeSpaces.length; i++) {
+                    let s = freeSpaces[i];
+                    if (box.w <= s.w && box.h <= s.h && box.l <= s.l) {
+                        bestSpaceIdx = i;
+                        break;
+                    }
+                }
+
+                if (bestSpaceIdx !== -1) {
+                    let space = freeSpaces.splice(bestSpaceIdx, 1)[0];
+                    packedItems.push({
+                        ...box,
+                        x: space.x,
+                        y: space.y,
+                        z: space.z
+                    });
+
+                    let newSpaces = splitSpace(space, box);
+                    for (let ns of newSpaces) {
+                        if (ns.w > 0 && ns.h > 0 && ns.l > 0) {
+                            freeSpaces.push(ns);
+                        }
+                    }
+                }
+            }
+            drawPackedBoxes3D(packedItems);
+        }
+
+        function splitSpace(space, box) {
+            let w_rem = space.w - box.w;
+            let h_rem = space.h - box.h;
+            let l_rem = space.l - box.l;
+
+            let c1 = [
+                { x: space.x + box.w, y: space.y, z: space.z, w: w_rem, h: space.h, l: space.l },
+                { x: space.x, y: space.y + box.h, z: space.z, w: box.w, h: h_rem, l: space.l },
+                { x: space.x, y: space.y, z: space.z + box.l, w: box.w, h: box.h, l: l_rem }
+            ];
+            let c2 = [
+                { x: space.x, y: space.y + box.h, z: space.z, w: space.w, h: h_rem, l: space.l },
+                { x: space.x, y: space.y, z: space.z + box.l, w: space.w, h: box.h, l: l_rem },
+                { x: space.x + box.w, y: space.y, z: space.z, w: w_rem, h: box.h, l: box.l }
+            ];
+            let c3 = [
+                { x: space.x, y: space.y, z: space.z + box.l, w: space.w, h: space.h, l: l_rem },
+                { x: space.x + box.w, y: space.y, z: space.z, w: w_rem, h: space.h, l: box.l },
+                { x: space.x, y: space.y + box.h, z: space.z, w: box.w, h: h_rem, l: box.l }
+            ];
+
+            let bestConfig = c1, maxVol = 0;
+            [c1, c2, c3].forEach(config => {
+                let maxSubVol = 0;
+                config.forEach(s => { let v = s.w * s.h * s.l; if (v > maxSubVol) maxSubVol = v; });
+                if (maxSubVol > maxVol) { maxVol = maxSubVol; bestConfig = config; }
+            });
+            return bestConfig;
+        }
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf3f4f6);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(7, 6, 10);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            const binGeom = new THREE.BoxGeometry(BIN_W / 1000, BIN_H / 1000, BIN_L / 1000);
+            scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(binGeom), new THREE.LineBasicMaterial({ color: 0x3b82f6 })));
+            scene.add(new THREE.Mesh(binGeom, new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.05 })));
+
+            const gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xdddddd);
+            gridHelper.position.y = -(BIN_H / 1000) / 2;
+            scene.add(gridHelper);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (container && camera && renderer) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        }
+
+        function drawPackedBoxes3D(packed) {
+            boxMeshes.forEach(mesh => scene.remove(mesh));
+            boxMeshes = [];
+            const binW_m = BIN_W / 1000, binH_m = BIN_H / 1000, binL_m = BIN_L / 1000;
+
+            packed.forEach(box => {
+                const w_m = box.w / 1000, h_m = box.h / 1000, l_m = box.l / 1000;
+                const geometry = new THREE.BoxGeometry(w_m, h_m, l_m);
+                const material = new THREE.MeshStandardMaterial({ color: box.color, roughness: 0.7, metalness: 0.1 });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x000, transparent: true, opacity: 0.5 })));
+
+                mesh.position.set((box.x / 1000) + (w_m / 2) - (binW_m / 2), (box.y / 1000) + (h_m / 2) - (binH_m / 2), (box.z / 1000) + (l_m / 2) - (binL_m / 2));
+                scene.add(mesh);
+                boxMeshes.push(mesh);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (controls) controls.update();
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+    </script>
+
+    <!-- THREE JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- MODAL 3D -->
+    <div id="modal-3d"
+        class="fixed inset-0 z-50 hidden bg-gray-900/50 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 md:w-4/5 h-4/5 flex flex-col overflow-hidden relative">
+            <div class="flex justify-between items-center p-4 border-b border-gray-200 bg-slate-50">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800">Simulador 3D - Retorno Empaques Vacíos (DHL)</h2>
+                    <p class="text-xs text-slate-500">Acomodo usando "Altura Plegada" para máxima optimización
+                        volumétrica.</p>
+                </div>
+                <button onclick="window.close3DModal()" class="text-gray-400 hover:text-red-500 transition-colors">
+                    <span class="material-symbols-outlined text-2xl">close</span>
+                </button>
+            </div>
+
+            <div class="flex-1 relative bg-gray-100" id="canvas-container">
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

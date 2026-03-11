@@ -897,3 +897,201 @@ def get_vw_dashboard_data(fecha: str = None):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error cargando dashboard datos: {e}")
+
+@app.get("/api/vw/reportes")
+def get_reportes_historicos(filtro: str = "mensual"):
+    """
+    Endpoint de Reportes Históricos con cálculo REAL de Diésel Desperdiciado.
+    - Diésel: Se ejecuta el motor de cubicaje completo para CADA fecha del Excel.
+    - Cumplimiento/Retrasos: Lectura directa de la tabla viajes_activos en SQLite.
+    """
+    try:
+        from datetime import datetime, timedelta
+        import sqlite3 as sql3
+        import math
+        import re
+
+        dias = 30
+        if filtro == "diario":
+            dias = 1
+        elif filtro == "semanal":
+            dias = 7
+        elif filtro == "mensual":
+            dias = 30
+
+        # ════════════════════════════════════════════════════════════════════
+        # PASO 1: Obtener columnas de fecha disponibles en demanda_besi
+        # ════════════════════════════════════════════════════════════════════
+        conn = sql3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(demanda_besi)")
+        all_cols = [c[1] for c in cursor.fetchall()]
+        conn.close()
+
+        date_pattern = re.compile(r'^\d{2}/\d{2}/\d{4}$')
+        date_columns = [c for c in all_cols if date_pattern.match(c)]
+
+        # Mapear cada fecha-string a su objeto datetime para búsqueda rápida
+        fecha_to_col = {}
+        for dc in date_columns:
+            try:
+                dt_obj = datetime.strptime(dc, "%d/%m/%Y")
+                fecha_to_col[dt_obj.strftime("%Y-%m-%d")] = dc
+            except ValueError:
+                pass
+
+        # ════════════════════════════════════════════════════════════════════
+        # PASO 2: Calcular diésel desperdiciado por VENTANA para cada fecha
+        #         Replica la lógica Heijunka de get_proveedor_ventanas():
+        #         Distribuye cajas en 10 ventanas fijas, calcula ocupación
+        #         volumétrica por ventana, y aplica:
+        #         Diesel = 15 * (1 - ocupacion/100) por cada ventana.
+        #         Lunes (más cajas) → camiones más llenos → MENOS desperdicio.
+        # ════════════════════════════════════════════════════════════════════
+        TRUCK_LENGTH = 6.5
+        TRUCK_WIDTH = 2.5
+        TRUCK_HEIGHT = 2.4
+        TRUCK_VOLUMEN_M3 = TRUCK_LENGTH * TRUCK_WIDTH * TRUCK_HEIGHT
+        DIESEL_POR_VIAJE = 15.0
+
+        ventanas_n25 = ["06:00", "08:20", "10:40", "13:00", "18:10", "20:30", "22:50", "01:10", "03:30"]
+        ventanas_n84 = ["15:35"]
+        orden_ventanas = ["06:00", "08:20", "10:40", "13:00", "15:35", "18:10", "20:30", "22:50", "01:10", "03:30"]
+
+        diesel_cache = {}  # "dd/mm/YYYY" -> litros desperdiciados
+
+        for fecha_str_col in date_columns:
+            try:
+                plan = ejecutar_motor_cubicaje(DB_PATH, fecha=fecha_str_col)
+                detalles = plan.get("Detalle_Por_Num_Parte", []) if plan else []
+
+                if not detalles:
+                    diesel_cache[fecha_str_col] = 0.0
+                    continue
+
+                # Acumular volumen de cajas por ventana (Heijunka)
+                volumen_por_ventana = {h: 0.0 for h in orden_ventanas}
+
+                for p in detalles:
+                    tmg_zona = p.get("TME")
+                    cajas_req = p.get("Cajas_Requeridas", 0)
+                    l = float(p.get("Largo_m", 0))
+                    w = float(p.get("Ancho_m", 0))
+                    h_llena = float(p.get("Alto_m", 0))
+
+                    if l <= 0 or w <= 0 or h_llena <= 0 or cajas_req <= 0:
+                        continue
+
+                    vol_caja = l * w * h_llena
+
+                    if tmg_zona == "2GM":
+                        volumen_por_ventana["15:35"] += cajas_req * vol_caja
+                    else:
+                        cajas_por_viaje = math.floor(cajas_req / len(ventanas_n25))
+                        sobrantes = cajas_req % len(ventanas_n25)
+                        for idx, h in enumerate(ventanas_n25):
+                            asignadas = cajas_por_viaje + (1 if idx < sobrantes else 0)
+                            volumen_por_ventana[h] += asignadas * vol_caja
+
+                # Calcular desperdicio por ventana: 15 * (1 - ocupacion/100)
+                diesel_dia = 0.0
+                for h in orden_ventanas:
+                    vol = volumen_por_ventana[h]
+                    camiones_req = max(1, math.ceil(vol / TRUCK_VOLUMEN_M3)) if vol > 0 else 1
+                    vol_total_camiones = camiones_req * TRUCK_VOLUMEN_M3
+                    ocupacion_pct = (vol / vol_total_camiones) * 100.0 if vol_total_camiones > 0 else 0.0
+                    desperdicio_ventana = DIESEL_POR_VIAJE * (1.0 - (ocupacion_pct / 100.0))
+                    diesel_dia += desperdicio_ventana
+
+                diesel_cache[fecha_str_col] = round(diesel_dia, 2)
+            except Exception:
+                diesel_cache[fecha_str_col] = 0.0
+
+        # Promedios por día de la semana (Lun=0...Dom=6) para extrapolar días sin dato
+        weekday_totals = {}   # weekday_num -> [waste1, waste2, ...]
+        for fecha_str_col, waste_val in diesel_cache.items():
+            try:
+                dt_obj = datetime.strptime(fecha_str_col, "%d/%m/%Y")
+                wd = dt_obj.weekday()
+                weekday_totals.setdefault(wd, []).append(waste_val)
+            except ValueError:
+                pass
+
+        weekday_avg = {}
+        for wd, vals in weekday_totals.items():
+            # Sábados(5) y Domingos(6) no operan → siempre 0
+            if wd in (5, 6):
+                weekday_avg[wd] = 0.0
+                continue
+            non_zero = [v for v in vals if v > 0]
+            weekday_avg[wd] = round(sum(non_zero) / len(non_zero), 2) if non_zero else 0.0
+
+        # ════════════════════════════════════════════════════════════════════
+        # PASO 3: Leer viajes reales de SQLite (Cumplimiento y Retrasos)
+        # ════════════════════════════════════════════════════════════════════
+        conn = sql3.connect(DB_PATH)
+        conn.row_factory = sql3.Row
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM viajes_activos")
+        viajes_reales = cur.fetchall()
+        conn.close()
+
+        viajes_procesados_total = len(viajes_reales)
+        minutos_retraso_total = 0
+        viajes_completados_ok = 0
+
+        for v in viajes_reales:
+            estado = v["estado"]
+            retraso = v["minutos_retraso"] or 0
+
+            if estado == "Completado":
+                minutos_retraso_total += max(0, retraso)
+                if retraso <= 15:
+                    viajes_completados_ok += 1
+
+        cumplimiento_pct = 0.0
+        if viajes_procesados_total > 0:
+            cumplimiento_pct = round((viajes_completados_ok / viajes_procesados_total) * 100.0, 1)
+
+        # ════════════════════════════════════════════════════════════════════
+        # PASO 4: Construir gráfica con diesel real por día
+        # ════════════════════════════════════════════════════════════════════
+        grafica_diesel = []
+        litros_desperdiciados_total = 0.0
+
+        hoy = datetime.now()
+        for d in range(dias):
+            fecha_eval = hoy - timedelta(days=(dias - 1 - d))
+            fechastr_label = fecha_eval.strftime("%d/%m")
+            fecha_key = fecha_eval.strftime("%Y-%m-%d")         # para buscar en cache
+            fecha_col_key = fecha_eval.strftime("%d/%m/%Y")     # formato columna Excel
+
+            if fecha_col_key in diesel_cache:
+                # Dato real del Excel
+                dia_waste = diesel_cache[fecha_col_key]
+            else:
+                # Extrapolar usando promedio del día de la semana
+                wd = fecha_eval.weekday()
+                dia_waste = weekday_avg.get(wd, 0.0)
+                # Sábado(5) y Domingo(6) sin operación = 0
+                if wd in (5, 6) and dia_waste == 0:
+                    dia_waste = 0.0
+
+            grafica_diesel.append({
+                "fecha": fechastr_label,
+                "desperdicioLts": round(dia_waste, 2)
+            })
+            litros_desperdiciados_total += dia_waste
+
+        return {
+            "kpis": {
+                "cumplimiento_pct": cumplimiento_pct,
+                "minutos_retraso": minutos_retraso_total,
+                "diesel_desperdiciado": round(litros_desperdiciados_total, 1)
+            },
+            "grafica_diesel": grafica_diesel
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error obteniendo reportes: {e}")
