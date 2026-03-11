@@ -277,6 +277,49 @@
         let intervalReloj = null;
         let intervalCuentaRegresiva = null;
 
+        // --- GPS SIMULATOR ---
+        let simuladorGpsInterval = null;
+        let pidx = 0;
+        const RUTA_PUEBLA_AKSYS = [
+            [19.1205, -98.2433],
+            [19.1235, -98.2420],
+            [19.1270, -98.2405],
+            [19.1305, -98.2380],
+            [19.1330, -98.2350],
+            [19.1360, -98.2310],
+            [19.1390, -98.2280],
+            [19.1415, -98.2245],
+            [19.1440, -98.2210],
+            [19.1465, -98.2170]
+        ];
+
+        function toggleSimuladorGPS() {
+            const btn = document.getElementById('btn-simulador-gps');
+            if (simuladorGpsInterval) {
+                clearInterval(simuladorGpsInterval);
+                simuladorGpsInterval = null;
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-slate-100', 'text-slate-700');
+                btn.innerHTML = `<span class="material-symbols-outlined text-blue-500 text-lg">location_on</span> Simular Ruta GPS`;
+            } else {
+                btn.classList.remove('bg-slate-100', 'text-slate-700');
+                btn.classList.add('bg-blue-600', 'text-white');
+                btn.innerHTML = `<span class="material-symbols-outlined text-white text-lg animate-pulse">my_location</span> Detener Simulación GPS`;
+                pidx = 0;
+                simuladorGpsInterval = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        const latLng = RUTA_PUEBLA_AKSYS[pidx];
+                        ws.send(JSON.stringify({
+                            tipo: "gps_update",
+                            lat: latLng[0],
+                            lng: latLng[1]
+                        }));
+                        pidx = (pidx + 1) % RUTA_PUEBLA_AKSYS.length;
+                    }
+                }, 2000); // Enviar actualizacion cada 2 segundos
+            }
+        }
+
         // ════════════════════════════════════════════════════
         //  WebSocket
         // ════════════════════════════════════════════════════
@@ -529,6 +572,9 @@
             container.innerHTML = html + `
                 <button onclick="abrirModalIncidencia()" class="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-red-500 text-lg">warning</span> Reportar Incidencia
+                </button>
+                <button id="btn-simulador-gps" onclick="toggleSimuladorGPS()" class="w-full bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 mt-2 transition-colors">
+                    <span class="material-symbols-outlined text-blue-500 text-lg">location_on</span> Simular Ruta GPS
                 </button>
             `;
         }

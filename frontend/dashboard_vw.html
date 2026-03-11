@@ -13,6 +13,8 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -292,6 +294,14 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- MAPA GPS -->
+                <div class="px-6 pb-4 pt-4 border-b border-slate-100 dark:border-slate-800">
+                    <div id="mapa-gps"
+                        class="w-full h-80 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm z-0 relative">
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
@@ -406,7 +416,6 @@
             const qtyAlertasCriticas = document.getElementById('qty-alertas-criticas'); // Hay que poner este ID al HTML
             const contenedorAlertas = document.getElementById('contenedor-alertas-secundario');
             const graficaContainer = document.getElementById('grafica-jit-container');
-            // 0. Fecha Dinámica Inicial
             const dateInputInit = document.getElementById('selector-fecha');
             if (dateInputInit && !dateInputInit.value) {
                 // Formatting to YYYY-MM-DD for initial load based on local computer time
@@ -415,6 +424,31 @@
                 const mm = String(today.getMonth() + 1).padStart(2, '0');
                 const yyyy = today.getFullYear();
                 dateInputInit.value = `${yyyy}-${mm}-${dd}`;
+            }
+
+            // --- INICIALIZACIÓN LEAFLET MAP ---
+            const mapContainer = document.getElementById('mapa-gps');
+            let map;
+            let markerGps;
+            if (mapContainer) {
+                map = L.map('mapa-gps').setView([19.1205, -98.2433], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+
+                // Icono para el marker del camión
+                const truckIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="background-color: #1e0052; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">local_shipping</span>
+                           </div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+
+                markerGps = L.marker([19.1205, -98.2433], { icon: truckIcon }).addTo(map);
+                markerGps.bindPopup("<b>Unidad en Tránsito</b>").openPopup();
             }
 
             // --- 1. FUNCIÓN PRINCIPAL DE HIDRATACIÓN (API CONSOLIDADA) ---
@@ -861,6 +895,18 @@
                                 }
                                 contAlertas.insertAdjacentHTML('afterbegin', htmlAlerta);
                             }
+                        }
+                    }
+                } // FIN if actualizacion_viaje
+
+                // D) Simulador GPS Recreativo
+                if (data.tipo === 'gps_update') {
+                    if (typeof markerGps !== 'undefined' && markerGps && typeof map !== 'undefined' && map) {
+                        const newLat = parseFloat(data.lat);
+                        const newLng = parseFloat(data.lng);
+                        if (!isNaN(newLat) && !isNaN(newLng)) {
+                            markerGps.setLatLng([newLat, newLng]);
+                            map.panTo([newLat, newLng]); // Centrado suavemente
                         }
                     }
                 }

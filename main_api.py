@@ -163,9 +163,14 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Mantener conexión viva esperando mensajes (Heartbeat)
             data = await websocket.receive_text()
-            # En este MVP los clientes solo ecuchan por el WS, pero mandan acciones vía REST HTTP.
+            try:
+                import json
+                payload = json.loads(data)
+                if payload.get("tipo") == "gps_update":
+                    await manager.broadcast(payload)
+            except Exception:
+                pass
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
@@ -325,22 +330,27 @@ def get_proveedor_ventanas(fecha: str = None):
                 "partes": []
             }
             
-        # 2.5 Leer el estado dinámico y real desde base de datos SQLite
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT id_viaje, ventana_hora, estado FROM viajes_activos")
-            for row in cursor.fetchall():
-                hora = row["ventana_hora"]
-                if hora in ventanas_dict:
-                    # Sobrescribir estado e ID para que coincidan con la DB
-                    ventanas_dict[hora]["estado"] = row["estado"]
-                    ventanas_dict[hora]["id_viaje"] = row["id_viaje"]
-        except Exception:
-            pass # Si falla continua con los mocks
-        finally:
-            conn.close()
+        # 2.5 Leer el estado dinámico y real desde base de datos SQLite solo si es HOY
+        from datetime import datetime
+        hoy_str = datetime.now().strftime('%d/%m/%Y')
+        is_today = (not fecha or fecha == "DAILY" or fecha == hoy_str)
+        
+        if is_today:
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            try:
+                cursor.execute("SELECT id_viaje, ventana_hora, estado FROM viajes_activos")
+                for row in cursor.fetchall():
+                    hora = row["ventana_hora"]
+                    if hora in ventanas_dict:
+                        # Sobrescribir estado e ID para que coincidan con la DB
+                        ventanas_dict[hora]["estado"] = row["estado"]
+                        ventanas_dict[hora]["id_viaje"] = row["id_viaje"]
+            except Exception:
+                pass # Si falla continua con los mocks
+            finally:
+                conn.close()
                 
         # 3. Leer motor de cubicaje
         plan = ejecutar_motor_cubicaje(DB_PATH, fecha=fecha)
@@ -654,12 +664,18 @@ def get_vw_dashboard_data(fecha: str = None):
         camiones_requeridos = plan.get("Total_Camiones_Flota_Requerida", 0) if plan else 0
         
         # 2. Obtener estado real de los viajes desde SQLite
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM viajes_activos ORDER BY ventana_hora ASC")
-        viajes_db = cursor.fetchall()
-        conn.close()
+        from datetime import datetime
+        hoy_str = datetime.now().strftime('%d/%m/%Y')
+        is_today = (not fecha or fecha == "DAILY" or fecha == hoy_str)
+        
+        viajes_db = []
+        if is_today:
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM viajes_activos ORDER BY ventana_hora ASC")
+            viajes_db = cursor.fetchall()
+            conn.close()
 
         # Estructuras de respuesta principal
         info_por_ventana = {}
