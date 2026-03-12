@@ -16,7 +16,7 @@ from cubicaje_engine import main as ejecutar_motor_cubicaje
 from data_pipeline import procesar_y_guardar_demanda
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get('DB_PATH', os.path.join(BASE_DIR, 'logistica_vw.db'))
+DB_PATH = os.path.join(BASE_DIR, 'logistica_vw.db')
 
 # === 1. MANEJADOR DE CONEXIONES WEBSOCKETS ===
 class ConnectionManager:
@@ -287,7 +287,7 @@ async def upload_demanda_file(file: UploadFile = File(...)):
     """
     try:
         # 1. Guardar el archivo temporalmente
-        file_location = f"/Users/danielfloresrojas/Downloads/VW_R1/{file.filename}"
+        file_location = os.path.join(BASE_DIR, file.filename)
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             

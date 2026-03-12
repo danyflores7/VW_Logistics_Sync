@@ -265,7 +265,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Manejar rutas relativas transparentemente
-    base_dir = '/Users/danielfloresrojas/Downloads/VW_R1'
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     db_target = args.db if os.path.isabs(args.db) else os.path.join(base_dir, args.db)
     
     main(db_target)

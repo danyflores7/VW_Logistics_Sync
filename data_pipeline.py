@@ -106,7 +106,7 @@ def load_and_process_plegados(file_path):
 
 def main():
     # Rutas absolutas a los archivos de origen usando el Workspace del usuario
-    base_dir = '/Users/danielfloresrojas/Downloads/VW_R1'
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     
     file_besi = os.path.join(base_dir, 'Besi_Proveedor_Aksys .xlsx')
     file_empaques = os.path.join(base_dir, 'EMPAQUES AKSYSxls.xls')
