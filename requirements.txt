@@ -4,3 +4,4 @@ pydantic
 pandas
 openpyxl
 websockets
+python-multipart
