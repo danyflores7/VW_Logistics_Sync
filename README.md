@@ -57,6 +57,10 @@ Estando el servidor encendido, puedes acceder a todos los ecosistemas del proyec
 - 🏎️ **Dashboard VW (Controladores):** [http://localhost:8000/frontend/dashboard_vw.html](http://localhost:8000/frontend/dashboard_vw.html)
 - 📦 **Panel de AKSYS (Proveedor):** [http://localhost:8000/frontend/panel_proveedor.html](http://localhost:8000/frontend/panel_proveedor.html)
 - 🚚 **App de Chofer (DHL):** [http://localhost:8000/frontend/repartidor.html](http://localhost:8000/frontend/repartidor.html)
+- 📊 **Reportes de Eficiencia:** [http://localhost:8000/frontend/reportes.html](http://localhost:8000/frontend/reportes.html)
+- 📡 **Monitoreo JIT:** [http://localhost:8000/frontend/monitoreo_jit.html](http://localhost:8000/frontend/monitoreo_jit.html)
+
+> **Producción (Render):** Si el servidor está desplegado en Render, sustituye `http://localhost:8000` por la URL de tu servicio (ej. `https://vw-logistics.onrender.com`). Las rutas relativas (`/frontend/...`) funcionan automáticamente.
 
 ---
 

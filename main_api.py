@@ -15,7 +15,8 @@ import json
 from cubicaje_engine import main as ejecutar_motor_cubicaje
 from data_pipeline import procesar_y_guardar_demanda
 
-DB_PATH = '/Users/danielfloresrojas/Downloads/VW_R1/logistica_vw.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.environ.get('DB_PATH', os.path.join(BASE_DIR, 'logistica_vw.db'))
 
 # === 1. MANEJADOR DE CONEXIONES WEBSOCKETS ===
 class ConnectionManager:
@@ -114,7 +115,7 @@ app.add_middleware(
 )
 
 # Montar los estáticos para poder acceder desde localtunnel o red
-app.mount("/frontend", StaticFiles(directory=os.path.join(os.path.dirname(DB_PATH), "frontend")), name="frontend")
+app.mount("/frontend", StaticFiles(directory=os.path.join(BASE_DIR, "frontend")), name="frontend")
 
 
 @app.get("/")
